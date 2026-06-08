@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block status %}
+  {% if targets %}
+    {% set up_count = targets | selectattr('3') | list | length %}
+    {{ up_count }} из {{ targets | length }} активны
+  {% else %}нет данных{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <a class="stat-card" href="{{ url_for('clients') }}"><div class="lbl">Клиенты</div><div class="val">{{ n_clients }}</div><div class="hint">управление →</div></a>
+  <a class="stat-card" href="{{ url_for('exits') }}"><div class="lbl">Выходы</div><div class="val">{{ n_exits }}</div><div class="hint">серверов →</div></a>
+  <a class="stat-card" href="{{ url_for('clients') }}"><div class="lbl">MTProto</div><div class="val">{{ mtproto_count }}</div><div class="hint">{% if mtproto_count and mtproto_ports %}порт {{ mtproto_ports[0] }} →{% else %}не настроен{% endif %}</div></a>
+  <a class="stat-card" href="{{ url_for('settings') }}"><div class="lbl">Мониторинг</div><div class="val">{{ interval }}м</div><div class="hint">авто-рестарт {% if auto_restart %}вкл{% else %}выкл{% endif %} →</div></a>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-header">Статус сервисов</div>
+    {% for label, ip, port, up in targets %}
+    <div class="status-item">
+      <div class="{% if up %}dot-ok{% else %}dot-err{% endif %}"></div>
+      <div class="status-lbl">{{ label }}</div>
+      <div class="status-val">{{ ip }}:{{ port }}{% if up %} ✓{% else %} ✗{% endif %}</div>
+    </div>
+    {% else %}
+    <div class="status-item"><div class="status-lbl" style="color:rgba(235,235,245,.4)">Нет данных о статусе</div></div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">MTProto <a href="{{ url_for('clients') }}" class="btn btn-glass btn-sm">⚙ Управление</a></div>
+    {% if mtproto_links %}
+    {% for item in mtproto_links %}
+    <div class="mtproto-row">
+      <div class="qr-box">{% if item.qr %}{{ item.qr | safe }}{% else %}▦{% endif %}</div>
+      <div class="mtproto-info">
+        <div class="port">{% if item.label %}{{ item.label }} · {% endif %}Порт {{ item.port }}</div>
+        <div class="mtproto-link">{{ item.link or 'IP моста недоступен' }}</div>
+        <div class="mtproto-btns">
+          {% if item.link %}<button class="btn btn-glass btn-sm" data-copy="{{ item.link }}">📋 Копировать</button>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="status-item"><div class="status-lbl" style="color:rgba(235,235,245,.4)">Не настроен</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

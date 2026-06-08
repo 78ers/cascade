@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Share-ссылки{% endblock %}
+{% block status %}{{ tokens | length }} активных{% endblock %}
+{% block content %}
+{% include "_subtabs.html" %}
+<div class="panel">
+  <div class="panel-header">Активные share-ссылки</div>
+  {% for t in tokens %}
+  <div class="token-row">
+    <div class="token-client">{{ t.client_name }}</div>
+    <div class="token-code">/c/{{ t.token[:8] }}…</div>
+    <div class="token-exp">{{ t.ttl_hours }}ч</div>
+    <form method="post" action="{{ url_for('share_revoke', token=t.token) }}" style="display:inline">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger btn-sm">Отозвать</button>
+    </form>
+  </div>
+  {% else %}
+  <div style="padding:24px 18px;color:rgba(235,235,245,.3);font-size:13px">Нет активных ссылок. Создай через страницу «Клиенты».</div>
+  {% endfor %}
+</div>
+{% endblock %}

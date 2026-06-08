@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Выходы{% endblock %}
+{% block status %}{{ exits | length }} сервер(ов){% endblock %}
+
+{% block content %}
+
+{# ── Форма добавления выхода ── #}
+<div class="panel">
+  <div class="panel-header">Добавить выход</div>
+  <form method="post" action="{{ url_for('exits_add') }}" data-confirm="Развернуть Xray на новом сервере? (~2 мин)">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="form-section">
+      <div class="form-row">
+        <div class="form-group" style="max-width:100px">
+          <label>ID</label>
+          <input type="text" name="eid" placeholder="ger" required>
+        </div>
+        <div class="form-group" style="max-width:140px">
+          <label>Локация</label>
+          <input type="text" name="location" placeholder="Германия" required>
+        </div>
+        <div class="form-group">
+          <label>IP сервера</label>
+          <input type="text" name="ip" placeholder="1.2.3.4" required>
+        </div>
+        <div class="form-group" style="max-width:90px">
+          <label>SSH порт</label>
+          <input type="number" name="ssh_port" value="22" min="1" max="65535">
+        </div>
+        <div class="form-group" style="max-width:80px">
+          <label>SSH юзер</label>
+          <input type="text" name="ssh_user" value="root">
+        </div>
+        <div class="form-group">
+          <label>SNI</label>
+          <input type="text" name="sni" value="www.google.com">
+        </div>
+        <div class="form-group" style="max-width:90px">
+          <label>VPN порт</label>
+          <input type="number" name="vpn_port" value="8444" min="1" max="65535">
+        </div>
+        <div class="form-group" style="justify-content:flex-end;min-width:auto">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn btn-primary">+ Добавить</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# ── Таблица существующих выходов ── #}
+<div class="panel">
+  <div class="panel-header">Серверы выхода</div>
+  <table>
+    <tr><th>ID</th><th>Локация</th><th>IP</th><th>Порт</th><th>SNI</th><th>Основной</th><th>Действия</th></tr>
+    {% for ex in exits %}
+    <tr>
+      <td class="mono">{{ ex.id }}</td>
+      <td><strong>{{ ex.location }}</strong></td>
+      <td>
+        <form method="post" action="{{ url_for('exits_ip', eid=ex.id) }}"
+              style="display:flex;gap:6px;align-items:center"
+              data-confirm="Сменить IP выхода {{ ex.location }}? Будет полный редеплой Xray (~2 мин).">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="text" name="ip" value="{{ ex.ip }}" class="inline-input" style="width:120px">
+          <button type="submit" class="btn btn-glass btn-sm">↻</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('exits_port', eid=ex.id) }}" style="display:flex;gap:6px;align-items:center">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="number" name="vpn_port" value="{{ ex.vpn_port }}" min="1" max="65535" class="inline-input" style="width:72px">
+          <button type="submit" class="btn btn-glass btn-sm">✓</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('exits_sni', eid=ex.id) }}" style="display:flex;gap:6px;align-items:center">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="text" name="sni" value="{{ ex.vpn_sni }}" placeholder="SNI" class="inline-input" style="width:150px">
+          <button type="submit" class="btn btn-glass btn-sm">✓</button>
+        </form>
+        {% if ex.vpn_sni_legacy %}
+        <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:rgba(255,200,0,.7)">
+            ⚠ legacy: {{ ex.vpn_sni_legacy | join(", ") }}
+            {% if ex.vpn_sni_changed_at %}
+              · сменён {{ ex.vpn_sni_changed_at }} (безопасно очищать через 48ч)
+            {% endif %}
+          </span>
+          <form method="post" action="{{ url_for('exits_sni_legacy_clear', eid=ex.id) }}" style="margin:0"
+                data-confirm="Удалить legacy SNI? Клиенты которые не обновили подписку потеряют связь. Прошло 48ч с момента смены?">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-glass btn-sm" style="font-size:10px">очистить</button>
+          </form>
+        </div>
+        {% endif %}
+      </td>
+      <td>
+        {% if ex.id == primary_id %}
+        <span class="badge" style="color:#7CFC00">★ основной</span>
+        {% else %}
+        <form method="post" action="{{ url_for('exits_primary', eid=ex.id) }}" style="display:inline"
+              data-confirm="Сделать {{ ex.location }} основным выходом подписки? Клиенты переключатся за ≤3ч.">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm">сделать основным</button>
+        </form>
+        {% endif %}
+      </td>
+      <td style="white-space:nowrap">
+        <form method="post" action="{{ url_for('exits_check', eid=ex.id) }}" style="display:inline">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm" title="Проверить SSH + TCP">🔍</button>
+        </form>
+        <form method="post" action="{{ url_for('exits_restart_xray', eid=ex.id) }}" style="display:inline"
+              data-confirm="Перезапустить Xray на {{ ex.location }}?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm" title="Перезапустить Xray">↺ Xray</button>
+        </form>
+        {% if exits | length > 1 %}
+        <form method="post" action="{{ url_for('exits_remove', eid=ex.id) }}" style="display:inline"
+              data-confirm="Удалить выход {{ ex.location }}?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm">✕</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет выходов</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Логи{% endblock %}
+{% block status %}последние 24 ч{% endblock %}
+
+{% block content %}
+{% include "_subtabs.html" %}
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <a href="{{ url_for('logs') }}" class="btn btn-glass btn-sm">↺ Обновить</a>
+</div>
+
+{% for sec in sections %}
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-header">{{ sec.title }}</div>
+  {% if sec.lines %}
+  <pre class="log-block">{% for line in sec.lines %}{{ line }}
+{% endfor %}</pre>
+  {% else %}
+  <div style="color:rgba(235,235,245,.4);padding:16px">Нет записей</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
