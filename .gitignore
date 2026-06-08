@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+config.json
+
+# исходники-референсы (не часть пакета)
+meridian-main/
+mtproto/
+TelegramProxy-main/
+
+.superpowers/
+
+# Claude-воркфлоу артефакты — НЕ на GitHub (только локально)
+docs/research/
+docs/superpowers/

@@ -1,0 +1,7 @@
+<div class="subtabs">
+  <a class="subtab {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">Общие</a>
+  <a class="subtab {% if request.endpoint == 'share_tokens' %}active{% endif %}" href="{{ url_for('share_tokens') }}">Share-ссылки</a>
+  <a class="subtab {% if request.endpoint == 'logs' %}active{% endif %}" href="{{ url_for('logs') }}">Логи</a>
+  <a class="subtab {% if request.endpoint == 'diag' %}active{% endif %}" href="{{ url_for('diag') }}">Диагностика</a>
+  <a class="subtab {% if request.endpoint == 'sni_check' %}active{% endif %}" href="{{ url_for('sni_check') }}">SNI</a>
+</div>

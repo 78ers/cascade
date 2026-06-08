@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Диагностика{% endblock %}
+{% block status %}снимок системы{% endblock %}
+
+{% block content %}
+{% include "_subtabs.html" %}
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Тест канала</span>
+    <span style="color:rgba(235,235,245,.5);font-size:12px">~30 сек · результат ниже → скопируй → пришли в чат</span>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px;align-items:center">
+    <form method="post" action="{{ url_for('diag_test', name='speed') }}" style="display:flex;gap:6px;align-items:center;margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if exits and exits|length > 1 %}
+      <select name="eid" class="inline-input" style="width:auto">
+        <option value="">все выходы</option>
+        {% for e in exits %}<option value="{{ e.id }}">{{ e.location }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <button class="btn btn-primary" type="submit">▶ Тест скорости (iperf3 мост↔выход)</button>
+    </form>
+    <form method="post" action="{{ url_for('diag_test', name='all') }}" style="display:flex;gap:6px;align-items:center;margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if exits and exits|length > 1 %}
+      <select name="eid" class="inline-input" style="width:auto">
+        <option value="">все выходы</option>
+        {% for e in exits %}<option value="{{ e.id }}">{{ e.location }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <button class="btn btn-glass btn-sm" type="submit">Полная диагностика</button>
+    </form>
+  </div>
+</div>
+{% if test_name %}
+<div style="color:#CCFF00;font-size:13px;margin-bottom:8px">Результат: {{ test_name }} — скопируй и пришли</div>
+{% endif %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <span style="color:rgba(235,235,245,.5);font-size:13px">Скопируй всё и пришли для анализа</span>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-glass btn-sm" data-copy-from="#diag-all">📋 Копировать всё</button>
+    <a href="{{ url_for('diag') }}" class="btn btn-glass btn-sm">↺ Обновить</a>
+  </div>
+</div>
+
+<textarea id="diag-all" style="display:none" aria-hidden="true">{% for sec in sections %}
+### {{ sec.title }}
+{% for line in sec.lines %}{{ line }}
+{% endfor %}
+{% endfor %}</textarea>
+
+{% for sec in sections %}
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+    <span>{{ sec.title }}</span>
+    <button class="btn btn-glass btn-sm" data-copy-from="#diag-sec-{{ loop.index }}">📋</button>
+  </div>
+  <textarea id="diag-sec-{{ loop.index }}" style="display:none" aria-hidden="true">{{ sec.lines | join('\n') }}</textarea>
+  {% if sec.lines %}
+  <pre class="log-block">{% for line in sec.lines %}{{ line }}
+{% endfor %}</pre>
+  {% else %}
+  <div style="color:rgba(235,235,245,.4);padding:16px">Нет данных</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

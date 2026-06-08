@@ -1,0 +1,28 @@
+[project]
+name = "cascade-vpn"
+version = "0.1.0"
+description = "Каскадный VPN-менеджер: VLESS+Reality, MTProto, relay — один CLI на РФ-сервере"
+requires-python = ">=3.8"
+dependencies = [
+    "questionary>=2.0",
+    "requests>=2.28",
+    "flask>=3.0",
+    "waitress>=3.0",
+]
+
+[project.scripts]
+cascade = "cascade.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cascade*"]
+
+[tool.setuptools.package-data]
+"cascade" = ["panel/templates/*.html", "panel/static/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Клиенты{% endblock %}
+{% block status %}{{ clients | length }} клиентов · {{ mtproto | length }} MTProto{% endblock %}
+
+{% block content %}
+{% if share_link %}
+<div class="flash flash-ok">
+  Share-ссылка создана: <a href="{{ share_link }}" style="color:#34c759;font-weight:600">{{ "https://" ~ request.host }}{{ share_link }}</a>
+</div>
+{% endif %}
+
+{# ── Клиенты ── #}
+<div class="panel">
+  <div class="panel-header">
+    Клиенты
+    <form method="post" action="{{ url_for('clients_add') }}" style="display:flex;gap:8px;align-items:center">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="text" name="name" placeholder="Имя клиента" class="inline-input" style="width:160px">
+      <button type="submit" class="btn btn-primary btn-sm">+ Добавить</button>
+    </form>
+  </div>
+  <table class="tbl-clients">
+    <tr><th>Имя</th><th>vless / профили</th><th>Статус</th><th>Действия</th></tr>
+    {% for it in clients %}
+    {% set cl = it.c %}
+    <tr>
+      <td>
+        <form method="post" action="{{ url_for('clients_rename', cid=cl.id) }}"
+              style="display:flex;gap:5px;align-items:center" data-confirm="Переименовать клиента?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="text" name="name" value="{{ cl.name }}" class="inline-input" style="width:110px">
+          <button type="submit" class="btn btn-glass btn-sm" title="Переименовать"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M9.5 1.5a1.5 1.5 0 0 1 2.12 2.12L5 10.24l-2.5.63.63-2.5L9.5 1.5z"/></svg></button>
+        </form>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          {% if it.profiles %}
+          <button class="btn btn-glass btn-sm" data-copy="{{ it.profiles[0].url }}">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M4 10H2.5A1.5 1.5 0 0 1 1 8.5V2.5A1.5 1.5 0 0 1 2.5 1h6A1.5 1.5 0 0 1 10 2.5V4"/></svg> vless</button>
+          <details class="profiles">
+            <summary class="btn btn-glass btn-sm">профили ▾</summary>
+            <div class="profiles-body">
+              {% for p in it.profiles %}
+              <div class="profile-row">
+                {% if p.qr %}<div class="qr-box">{{ p.qr | safe }}</div>{% endif %}
+                <div style="flex:1;min-width:0">
+                  <div class="profile-tag">{{ p.exit }} · {{ 'direct' if p.mode == 'direct' else 'cascade' }}</div>
+                  <div class="mtproto-link" style="max-width:none">{{ p.url }}</div>
+                </div>
+                <button class="btn btn-glass btn-sm" data-copy="{{ p.url }}"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M4 10H2.5A1.5 1.5 0 0 1 1 8.5V2.5A1.5 1.5 0 0 1 2.5 1h6A1.5 1.5 0 0 1 10 2.5V4"/></svg></button>
+              </div>
+              {% endfor %}
+            </div>
+          </details>
+          {% else %}
+          <span style="color:rgba(235,235,245,.3);font-size:11px">IP моста недоступен</span>
+          {% endif %}
+          {% if it.profiles %}
+          <details class="profiles">
+            <summary class="btn btn-glass btn-sm">JSON ▾</summary>
+            <div class="profiles-body">
+              {% for p in it.profiles %}
+              <div class="profile-row">
+                <div style="flex:1;min-width:0">
+                  <div class="profile-tag">{{ p.exit }} · {{ p.mode }}</div>
+                </div>
+                <button class="btn btn-glass btn-sm" data-copy="{{ p.json }}">Копировать</button>
+                <a href="{{ url_for('client_profile_download', cid=cl.id, exit=p.eid, direct=(1 if p.direct else 0)) }}" class="btn btn-glass btn-sm">↓</a>
+              </div>
+              {% endfor %}
+            </div>
+          </details>
+          {% endif %}
+        </div>
+      </td>
+      <td>
+        {% if cl.enabled %}<span class="badge">активен</span>{% else %}<span class="badge badge-off">выключен</span>{% endif %}
+        <form method="post" action="{{ url_for('clients_toggle', cid=cl.id) }}" style="display:inline"
+              data-confirm="{% if cl.enabled %}Выключить{% else %}Включить{% endif %} клиента {{ cl.name }}?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm">{% if cl.enabled %}<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="width:12px;height:12px"><line x1="4" y1="2" x2="4" y2="12"/><line x1="10" y1="2" x2="10" y2="12"/></svg>{% else %}<svg viewBox="0 0 14 14" fill="currentColor" style="width:12px;height:12px"><polygon points="3,2 11,7 3,12"/></svg>{% endif %}</button>
+        </form>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <form method="post" action="{{ url_for('client_share', cid=cl.id) }}"
+                style="display:inline-flex;gap:4px;align-items:center">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <select name="ttl_hours" class="inline-input" style="width:auto">
+              <option value="24">24ч</option>
+              <option value="72">3д</option>
+              <option value="168">7д</option>
+            </select>
+            <button type="submit" class="btn btn-glass btn-sm"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><circle cx="11" cy="3" r="1.5"/><circle cx="3" cy="7" r="1.5"/><circle cx="11" cy="11" r="1.5"/><path d="M4.5 7.8 9.5 10.2M9.5 3.8 4.5 6.2"/></svg> Share</button>
+          </form>
+          {% if it.sub_token %}
+          <button class="btn btn-glass btn-sm"
+                  data-copy="{{ "https://" ~ request.host }}/sub/{{ it.sub_token }}"
+                  title="{{ "https://" ~ request.host }}/sub/{{ it.sub_token }}"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M7 1v12M1 7h12"/><circle cx="7" cy="7" r="6"/></svg> Sub</button>
+          {% endif %}
+          {% if it.sub_token and exits and exits|length > 1 %}
+          <details class="profiles">
+            <summary class="btn btn-glass btn-sm">Sub сервер ▾</summary>
+            <div class="profiles-body">
+              {% for e in exits %}
+              <div class="profile-row">
+                <div style="flex:1;min-width:0"><div class="profile-tag">{{ e.location }}</div></div>
+                <button class="btn btn-glass btn-sm"
+                        data-copy="{{ 'https://' ~ request.host }}/sub/{{ it.sub_token }}?exit={{ e.id }}">Копировать</button>
+              </div>
+              {% endfor %}
+            </div>
+          </details>
+          {% endif %}
+          <form method="post" action="{{ url_for('clients_sub_token', cid=cl.id) }}"
+                style="display:inline"
+                data-confirm="{{ 'Сбросить токен подписки? Старый URL перестанет работать.' if it.sub_token else 'Создать подписку для ' + cl.name + '?' }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-glass btn-sm" title="{% if it.sub_token %}Сбросить токен{% else %}Создать подписку{% endif %}">
+              {% if it.sub_token %}↺{% else %}+ Sub{% endif %}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('clients_remove', cid=cl.id) }}" style="display:inline"
+                data-confirm="Удалить клиента {{ cl.name }}?">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px"><line x1="2" y1="2" x2="12" y2="12"/><line x1="12" y1="2" x2="2" y2="12"/></svg></button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+{# ── Bridge MTProto (TELEMT на мосту) ── #}
+<div class="panel">
+  <div class="panel-header">
+    Bridge MTProto (TELEMT)
+    <form method="post" action="{{ url_for('bridge_mtproto_add') }}"
+          style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"
+          data-confirm="Развернуть TELEMT на мосту? (~1 мин). DNS: test.домен → IP моста вручную.">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="text" name="label" placeholder="Имя юзера" class="inline-input" style="width:110px">
+      <input type="text" name="mask_domain" placeholder="ASN-сосед (SNI-скан)" class="inline-input" style="width:160px" title="Маска TLS (ASN-сосед из SNI-сканера панели)">
+      <button type="submit" class="btn btn-primary btn-sm">+ Добавить</button>
+    </form>
+  </div>
+  {% for item in bridge_mtproto %}
+  <div class="mtproto-row">
+    <div class="qr-box">{% if item.qr %}{{ item.qr | safe }}{% else %}▦{% endif %}</div>
+    <div class="mtproto-info">
+      <div class="port">{{ item.label }}</div>
+      <div class="mtproto-link">{{ item.link or 'DNS не настроен (test.' + panel_domain + ')' }}</div>
+      <div class="mtproto-btns">
+        {% if item.link %}<button class="btn btn-glass btn-sm" data-copy="{{ item.link }}">📋 Копировать</button>{% endif %}
+        <form method="post" action="{{ url_for('bridge_mtproto_remove', label=item.label) }}" style="display:inline"
+              data-confirm="Удалить Bridge MTProto '{{ item.label }}'?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm">✕</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="status-item"><div class="status-lbl" style="color:rgba(235,235,245,.4);padding:8px 0">Нет Bridge MTProto. Добавь после настройки DNS (test.домен → IP моста) и SNI-скана.</div></div>
+  {% endfor %}
+  {% if bridge_mtproto %}
+  <div style="padding:4px 12px 8px">
+    <form method="post" action="{{ url_for('bridge_mtproto_restart') }}" style="display:inline"
+          data-confirm="Перезапустить TELEMT на мосту?">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-glass btn-sm">↺ Restart TELEMT</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{# ── MTProto (exit server, idle — оставлен для совместимости) ── #}
+<div class="panel">
+  <div class="panel-header">
+    MTProto (exit server, idle)
+    <form method="post" action="{{ url_for('mtproto_add') }}"
+          style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"
+          data-confirm="Развернуть MTProto на новом порту? (~1 мин)">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if exits and exits|length > 1 %}
+      <select name="exit_id" class="inline-input" style="width:auto" title="На каком выходе развернуть">
+        {% for e in exits %}<option value="{{ e.id }}" {% if e.id == mtproto_exit_id %}selected{% endif %}>{{ e.location }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <input type="text" name="label" placeholder="Имя юзера" class="inline-input" style="width:110px">
+      <input type="text" name="domain" value="google.com" class="inline-input" style="width:120px" title="Fake-TLS домен">
+      <input type="number" name="port" value="{{ suggest_port }}" min="1" max="65535" class="inline-input" style="width:80px">
+      <button type="submit" class="btn btn-primary btn-sm">+ Порт</button>
+    </form>
+  </div>
+  {% for item in mtproto %}
+  <div class="mtproto-row">
+    <div class="qr-box">{% if item.qr %}{{ item.qr | safe }}{% else %}▦{% endif %}</div>
+    <div class="mtproto-info">
+      <div class="port">{% if item.label %}{{ item.label }} · {% endif %}Порт {{ item.port }}</div>
+      <div class="mtproto-link">{{ item.link or 'IP моста недоступен' }}</div>
+      <div class="mtproto-btns">
+        {% if item.link %}<button class="btn btn-glass btn-sm" data-copy="{{ item.link }}">📋 Копировать</button>{% endif %}
+        <form method="post" action="{{ url_for('mtproto_rotate', port=item.port) }}" style="display:inline"
+              data-confirm="Сменить секрет порта {{ item.port }}? Старые ссылки перестанут работать.">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm">🔑 Секрет</button>
+        </form>
+        <form method="post" action="{{ url_for('mtproto_restart', port=item.port) }}" style="display:inline"
+              data-confirm="Перезапустить MTProto порт {{ item.port }}?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-glass btn-sm">↺ Restart</button>
+        </form>
+        <form method="post" action="{{ url_for('mtproto_remove', port=item.port) }}" style="display:inline"
+              data-confirm="Удалить MTProto порт {{ item.port }}?">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm">✕</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="status-item"><div class="status-lbl" style="color:rgba(235,235,245,.4);padding:8px 0">Нет MTProto-портов. Добавь через «+ Порт».</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

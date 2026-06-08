@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Настройки — {{ name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="share-page">
+  <div class="share-header">
+    <h1>⬡</h1>
+    <p style="color:rgba(235,235,245,.5);font-size:14px;margin-top:6px">Настройки для подключения: <strong style="color:#f2f2f7">{{ name }}</strong></p>
+  </div>
+
+  {% if error %}
+  <div class="share-error">{{ error }}</div>
+  {% elif not profiles %}
+  <div class="share-error">Нет доступных профилей</div>
+  {% else %}
+  {% for p in profiles %}
+  <div class="share-card">
+    <div class="share-card-head">{{ p.exit }} — {{ 'Direct (прямой)' if p.mode == 'direct' else 'Cascade (через мост)' }}</div>
+    <div class="share-body">
+      {% if p.qr %}
+      <div class="share-qr">{{ p.qr | safe }}</div>
+      {% endif %}
+      <div style="flex:1">
+        <div class="share-link">{{ p.url }}</div>
+        <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}">📋 Копировать</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <p style="color:rgba(235,235,245,.2);font-size:11px;margin-top:16px">Импортируй в Happ, v2rayNG, Nekoray, NekoBox</p>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Настройки{% endblock %}
+{% block status %}Конфигурация{% endblock %}
+
+{% block content %}
+{% include "_subtabs.html" %}
+<form method="post">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+  <div class="panel">
+    <div class="form-section">
+      <h4>Telegram уведомления</h4>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Bot Token</label>
+          <input type="text" name="telegram_bot_token" value="{{ cfg.telegram_bot_token if cfg else '' }}" placeholder="1234567890:AAF...">
+        </div>
+        <div class="form-group">
+          <label>Chat ID</label>
+          <input type="text" name="telegram_chat_id" value="{{ cfg.telegram_chat_id if cfg else '' }}" placeholder="-1001234567890">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h4>Мониторинг</h4>
+      <div class="form-row">
+        <div class="form-group" style="max-width:160px">
+          <label>Интервал (минут)</label>
+          <input type="number" name="monitor_interval_min" value="{{ cfg.monitor_interval_min if cfg else 5 }}" min="1" max="60">
+        </div>
+        <div class="form-group">
+          <div class="toggle-row">
+            <label>Авто-рестарт при сбое</label>
+            <input type="checkbox" name="auto_restart" {% if cfg and cfg.auto_restart %}checked{% endif %}>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h4>TLS-маскировка (фингерпринт)</h4>
+      <div class="form-row">
+        <div class="form-group" style="max-width:240px">
+          <label>Отпечаток клиента</label>
+          <select name="fingerprint">
+            {% for fp in fingerprints %}
+            <option value="{{ fp }}" {% if cfg and cfg.fingerprint == fp %}selected{% endif %}>{{ fp }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="opacity:.7">При блокировках chrome помогает firefox. После смены — перевыдать клиентам профиль (JSON/ссылку).</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h4>Веб-панель</h4>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Домен</label>
+          <input type="text" name="domain" value="{{ cfg.domain if cfg else '' }}" placeholder="tech.example.ru">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:10px">
+        <div class="form-group">
+          <label>Новый пароль (оставь пустым чтобы не менять)</label>
+          <input type="password" name="password" placeholder="••••••••">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+    </div>
+  </div>
+</form>
+
+<div class="panel" style="margin-top:20px">
+  <div class="panel-header">Сервер</div>
+  <div class="form-section">
+    <div class="form-row" style="gap:12px;align-items:center">
+      <form method="post" action="{{ url_for('server_restart_panel') }}"
+            data-confirm="Перезапустить панель? Соединение кратко прервётся (~5 сек).">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-glass">↺ Перезапустить панель</button>
+      </form>
+      <a href="{{ url_for('diag') }}" class="btn btn-glass">🔍 Диагностика</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

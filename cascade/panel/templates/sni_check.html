@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Проверка SNI{% endblock %}
+{% block status %}кандидат для Reality{% endblock %}
+
+{% block content %}
+{% include "_subtabs.html" %}
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-header">Проверка SNI-домена (с выхода)</div>
+  <div style="padding:12px">
+    <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:10px">
+      Условия Reality: TLS 1.3 + X25519 + HTTP/2 + без редиректа. Запуск с сервера(ов) выхода по SSH (~10 сек).
+    </div>
+    <form method="post" action="{{ url_for('sni_check') }}" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="text" name="domain" value="{{ domain }}" placeholder="www.bmw.de"
+             style="flex:1;min-width:200px" required>
+      <button class="btn btn-primary" type="submit">▶ Проверить</button>
+    </form>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      {% for d in candidates %}
+      <form method="post" action="{{ url_for('sni_check') }}" style="margin:0">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="domain" value="{{ d }}">
+        <button class="btn btn-glass btn-sm" type="submit">{{ d }}</button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-header">Найти кандидатов (сканер подсети)</div>
+  <div style="padding:12px">
+    <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:10px">
+      RealiTLScanner сканирует подсеть выходного сервера (~45 сек). Находит соседей по ASN с нужными TLS-параметрами.
+    </div>
+    <form method="post" action="{{ url_for('sni_scan') }}" style="display:flex;gap:8px;align-items:center;margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if exits and exits|length > 1 %}
+      <select name="eid" class="inline-input" style="width:auto">
+        {% for e in exits %}<option value="{{ e.id }}">{{ e.location }} ({{ e.ip }})</option>{% endfor %}
+      </select>
+      {% endif %}
+      <button class="btn btn-glass" type="submit">🔍 Сканировать подсеть</button>
+    </form>
+    {% if scan_domains %}
+    <div style="margin-top:12px">
+      <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">
+        Найдено {{ scan_domains|length }} — нажми чтобы проверить:
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% for d in scan_domains %}
+        <form method="post" action="{{ url_for('sni_check') }}" style="margin:0">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="domain" value="{{ d }}">
+          <button class="btn btn-glass btn-sm" type="submit">{{ d }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% elif scan_domains is not none %}
+    <div style="margin-top:12px;color:rgba(235,235,245,.4);font-size:12px">Доменов не найдено.</div>
+    {% endif %}
+    {% if scan_log %}
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;color:rgba(235,235,245,.4)">Лог сканирования</summary>
+      <pre style="font-size:10px;line-height:1.5;color:rgba(235,235,245,.6);background:rgba(0,0,0,.25);border-radius:8px;padding:10px;margin-top:6px;overflow-x:auto;white-space:pre-wrap;max-height:200px;overflow-y:auto">{{ scan_log }}</pre>
+    </details>
+    {% endif %}
+  </div>
+</div>
+
+{% if results is not none %}
+<div class="panel">
+  <div class="panel-header">Результат: {{ domain }}</div>
+  <div style="padding:12px;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left;color:rgba(235,235,245,.5)">
+        <th style="padding:6px">Выход</th><th>TLS 1.3</th><th>X25519</th><th>HTTP/2</th>
+        <th>HTTP</th><th>Редирект</th><th>Вердикт</th>
+      </tr></thead>
+      <tbody>
+      {% for r in results %}
+        <tr style="border-top:1px solid rgba(255,255,255,.06)">
+          <td style="padding:6px">{{ r.exit }}</td>
+          {% if r.error %}
+            <td colspan="6" style="color:#ff6b6b">SSH-ошибка: {{ r.error }}</td>
+          {% else %}
+            <td>{{ "✅" if r.tls13 else "❌" }}</td>
+            <td>{{ "✅" if r.x25519 else "❌" }}</td>
+            <td>{{ "✅" if r.h2 else "❌" }}</td>
+            <td>{{ r.http_code }}</td>
+            <td>{{ ("⚠ " ~ r.redirect) if r.redirected else "нет" }}</td>
+            <td>{{ "✅ годится" if r.ok else "❌ не годится" }}</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div style="color:rgba(235,235,245,.4);font-size:12px;margin-top:10px">
+      Годный SNI → поменяй его на выходе в разделе «Выходы».
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
