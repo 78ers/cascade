@@ -147,6 +147,9 @@ def build_client_xray_config(
                 # РФ-домены резолвим через РФ-DNS (Яндекс): правильные РФ IP, запрос внутри страны
                 {"address": "77.88.8.8", "domains": ["geosite:category-ru"],
                  "expectIPs": ["geoip:ru"]},
+                # CN-домены — тоже прямым РФ-DNS (без туннеля): иначе Google DoH из Европы
+                # вернёт европейский edge WeChat → direct пойдёт к далёкому IP, скорость не вырастет
+                {"address": "77.88.8.8", "domains": ["geosite:cn"]},
                 # прочее — Google DoH через туннель: провайдер не видит, какие сайты резолвим
                 "https://dns.google/dns-query",
             ],
@@ -177,8 +180,9 @@ def build_client_xray_config(
             "domainStrategy": "IPIfNonMatch",
             "rules": [
                 # РФ-домены и РФ-IP + локалка идут напрямую (с реального IP устройства)
-                {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru"]},
-                {"type": "field", "outboundTag": "direct", "ip": ["geoip:ru", "geoip:private", host]},
+                # CN добавлен: китайские сервисы (WeChat) из РФ быстрее напрямую, чем крюком через Европу
+                {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru", "geosite:cn"]},
+                {"type": "field", "outboundTag": "direct", "ip": ["geoip:ru", "geoip:cn", "geoip:private", host]},
                 # всё остальное (вкл. Telegram — домены и IP не-РФ) — в каскад через мост.
                 # Telegram идёт по Reality (firefox-fp, DPI-устойчив), MTProto-прокси не нужен.
                 {"type": "field", "outboundTag": "proxy", "port": "0-65535"},
