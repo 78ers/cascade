@@ -139,9 +139,11 @@ def test_build_client_config_split_routing():
     direct_dom_rules = [r for r in rules if r["outboundTag"] == "direct" and "domain" in r]
     all_direct_domains = [d for r in direct_dom_rules for d in r["domain"]]
     assert "geosite:category-ru" in all_direct_domains
+    assert "geosite:cn" in all_direct_domains  # CN (WeChat) → direct, быстрее напрямую из РФ
     assert "geosite:telegram" not in all_direct_domains  # Telegram → каскад через catch-all, не direct
     direct_ip = [r for r in rules if r["outboundTag"] == "direct" and "ip" in r][0]
     assert "geoip:ru" in direct_ip["ip"]
+    assert "geoip:cn" in direct_ip["ip"]
     assert "geoip:private" in direct_ip["ip"]
     # последнее правило — всё прочее в каскад
     assert rules[-1]["outboundTag"] == "proxy"
@@ -158,6 +160,11 @@ def test_build_client_config_dns_split():
           if isinstance(s, dict) and "geosite:category-ru" in s.get("domains", [])]
     assert ru and ru[0]["address"] == "77.88.8.8"
     assert "geoip:ru" in ru[0]["expectIPs"]
+    # CN-домены — прямой РФ-DNS без expectIPs geoip:ru (вернутся китайские IP)
+    cn = [s for s in servers
+          if isinstance(s, dict) and "geosite:cn" in s.get("domains", [])]
+    assert cn and cn[0]["address"] == "77.88.8.8"
+    assert "expectIPs" not in cn[0]
     # прочее — через DoH (строка-URL)
     assert any(isinstance(s, str) and s.startswith("https://") for s in servers)
 
