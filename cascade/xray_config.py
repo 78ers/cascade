@@ -14,6 +14,28 @@ DEFAULT_FINGERPRINT = "firefox"   # chrome-отпечаток режет РФ-DP
 FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
                 "edge", "360", "qq", "random", "randomized"]
 
+# WeChat → direct: из РФ напрямую быстрее, чем крюком через Европу.
+# Узкий список доменов вместо geosite:cn/geoip:cn — китайская geo-база огромна
+# и превышает лимит памяти туннеля на iOS (Network Extension ~50 МБ).
+# Звонки WeChat (UDP) идут на TURN-серверы Tencent по доменам voip*.weixin.qq.com
+# → их IP кэшируются при DNS-резолве (см. dns-секцию) и сопоставляются с этими
+# правилами по IP. Чистый P2P (редко за NAT) может уйти в каскад — приемлемо.
+WECHAT_DOMAINS = [
+    "domain:weixin.qq.com",    # чат (long/short polling), статьи, voip-сигналинг
+    "domain:wx.qq.com",        # web/доп.
+    "domain:weixin.com",
+    "domain:wechat.com",       # международный WeChat
+    "domain:wechatpay.com",    # WeChat Pay
+    "domain:tenpay.com",       # платежи Tenpay
+    "domain:servicewechat.com",  # мини-программы
+    "domain:qpic.cn",          # медиа моментов (mmsns.qpic.cn)
+    "domain:qlogo.cn",         # аватары (wx.qlogo.cn)
+    "domain:gtimg.com",        # Tencent CDN (фото/видео/файлы)
+    "domain:gtimg.cn",
+    "domain:url.cn",           # короткие ссылки
+    "domain:myqcloud.com",     # Tencent Cloud CDN
+]
+
 
 def gen_uuid() -> str:
     return str(_uuid.uuid4())
@@ -147,9 +169,9 @@ def build_client_xray_config(
                 # РФ-домены резолвим через РФ-DNS (Яндекс): правильные РФ IP, запрос внутри страны
                 {"address": "77.88.8.8", "domains": ["geosite:category-ru"],
                  "expectIPs": ["geoip:ru"]},
-                # CN-домены — тоже прямым РФ-DNS (без туннеля): иначе Google DoH из Европы
-                # вернёт европейский edge WeChat → direct пойдёт к далёкому IP, скорость не вырастет
-                {"address": "77.88.8.8", "domains": ["geosite:cn"]},
+                # WeChat-домены — прямым РФ-DNS (без туннеля). Xray кэширует их IP →
+                # UDP-звонки на эти IP сопоставляются с direct-правилом (WECHAT_DOMAINS).
+                {"address": "77.88.8.8", "domains": WECHAT_DOMAINS},
                 # прочее — Google DoH через туннель: провайдер не видит, какие сайты резолвим
                 "https://dns.google/dns-query",
             ],
@@ -180,9 +202,11 @@ def build_client_xray_config(
             "domainStrategy": "IPIfNonMatch",
             "rules": [
                 # РФ-домены и РФ-IP + локалка идут напрямую (с реального IP устройства)
-                # CN добавлен: китайские сервисы (WeChat) из РФ быстрее напрямую, чем крюком через Европу
-                {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru", "geosite:cn"]},
-                {"type": "field", "outboundTag": "direct", "ip": ["geoip:ru", "geoip:cn", "geoip:private", host]},
+                {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru"]},
+                {"type": "field", "outboundTag": "direct", "ip": ["geoip:ru", "geoip:private", host]},
+                # WeChat → direct узким списком доменов. НЕ geosite:cn/geoip:cn —
+                # китайская geo-база превышает лимит памяти туннеля iOS (50 МБ).
+                {"type": "field", "outboundTag": "direct", "domain": WECHAT_DOMAINS},
                 # всё остальное (вкл. Telegram — домены и IP не-РФ) — в каскад через мост.
                 # Telegram идёт по Reality (firefox-fp, DPI-устойчив), MTProto-прокси не нужен.
                 {"type": "field", "outboundTag": "proxy", "port": "0-65535"},
