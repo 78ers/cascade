@@ -139,7 +139,7 @@ def test_build_client_config_split_routing():
     direct_dom_rules = [r for r in rules if r["outboundTag"] == "direct" and "domain" in r]
     all_direct_domains = [d for r in direct_dom_rules for d in r["domain"]]
     assert "geosite:category-ru" in all_direct_domains
-    assert "domain:weixin.qq.com" in all_direct_domains  # WeChat → direct узким списком доменов
+    assert "domain:qq.com" in all_direct_domains  # WeChat → direct списком корневых доменов
     assert "geosite:cn" not in all_direct_domains  # китайская geo-база НЕ грузится (лимит памяти iOS 50МБ)
     assert "geosite:telegram" not in all_direct_domains  # Telegram → каскад через catch-all, не direct
     direct_ip = [r for r in rules if r["outboundTag"] == "direct" and "ip" in r][0]
@@ -163,7 +163,7 @@ def test_build_client_config_dns_split():
     assert "geoip:ru" in ru[0]["expectIPs"]
     # WeChat-домены — прямой РФ-DNS без expectIPs (Xray кэширует IP для UDP-звонков)
     wc = [s for s in servers
-          if isinstance(s, dict) and "domain:weixin.qq.com" in s.get("domains", [])]
+          if isinstance(s, dict) and "domain:qq.com" in s.get("domains", [])]
     assert wc and wc[0]["address"] == "77.88.8.8"
     assert "expectIPs" not in wc[0]
     # прочее — через DoH (строка-URL)
