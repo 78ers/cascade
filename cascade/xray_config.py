@@ -23,6 +23,10 @@ FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
 # Звонки WeChat (UDP) идут на TURN-серверы Tencent по доменам voip*.weixin.qq.com
 # → их IP кэшируются при DNS-резолве (см. dns-секцию) и сопоставляются с этими
 # правилами по IP. Чистый P2P (редко за NAT) может уйти в каскад — приемлемо.
+# geosite:tencent — backstop поверх явного списка (ловит Tencent-домены, что мы
+# пропустили). Категория МЕЛКАЯ (не cn) → влезает в лимит RAM Happ ~50МБ (базовый
+# профиль ~18МБ). Если Happ упадёт «Лимит памяти туннеля 50МБ» ИЛИ Xray не стартует
+# (категории нет в урезанном geosite.dat) — убрать эту строку, явный список останется.
 WECHAT_DOMAINS = [
     "domain:qq.com",           # вся qq.com-семья: чат, voip-сигналинг, Channels-видео
                                # (tc/video/v.qq.com), статьи (mp.weixin), загрузки (dldir1)
@@ -40,6 +44,7 @@ WECHAT_DOMAINS = [
     "domain:wechatos.net",     # зарубежный asset-CDN WeChat (CNAME картинок/стикеров)
     "domain:smtcdns.com",      # Tencent Smart CDN (динамический CNAME-таргет медиа)
     "domain:smtcdns.net",
+    "geosite:tencent",         # backstop: вся Tencent-сеть категорией (future-proof; следить за RAM Happ)
 ]
 
 
@@ -175,9 +180,14 @@ def build_client_xray_config(
                 # РФ-домены резолвим через РФ-DNS (Яндекс): правильные РФ IP, запрос внутри страны
                 {"address": "77.88.8.8", "domains": ["geosite:category-ru"],
                  "expectIPs": ["geoip:ru"]},
-                # WeChat-домены — прямым РФ-DNS (без туннеля). Xray кэширует их IP →
-                # UDP-звонки на эти IP сопоставляются с direct-правилом (WECHAT_DOMAINS).
-                {"address": "77.88.8.8", "domains": WECHAT_DOMAINS},
+                # WeChat/Tencent — китайский DNS (DNSPod = собственный резолвер Tencent):
+                # отдаёт мейнланд-edge с ПОЛНЫМ кэшем контента. RU/международный резолвер даёт
+                # «international» edge с неполным кэшем → Channels-видео/мини-программы не грузятся.
+                # Запрос к резолверам идёт DIRECT из РФ (их IP в direct ip-правиле ниже — иначе
+                # ушёл бы в каскад, и Tencent снова вернул бы европейский edge). Xray кэширует
+                # выданные IP → UDP-звонки на них сопоставляются с direct-правилом (WECHAT_DOMAINS).
+                {"address": "119.29.29.29", "domains": WECHAT_DOMAINS},  # DNSPod (Tencent-own)
+                {"address": "223.5.5.5", "domains": WECHAT_DOMAINS},     # AliDNS (запасной)
                 # прочее — Google DoH через туннель: провайдер не видит, какие сайты резолвим
                 "https://dns.google/dns-query",
             ],
@@ -207,9 +217,12 @@ def build_client_xray_config(
         "routing": {
             "domainStrategy": "IPIfNonMatch",
             "rules": [
-                # РФ-домены и РФ-IP + локалка идут напрямую (с реального IP устройства)
+                # РФ-домены и РФ-IP + локалка идут напрямую (с реального IP устройства).
+                # 119.29.29.29 (DNSPod) и 223.5.5.5 (AliDNS) — китайские DNS-резолверы WeChat:
+                # их запросы тоже direct из РФ, иначе уйдут в каскад → европейский edge.
                 {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru"]},
-                {"type": "field", "outboundTag": "direct", "ip": ["geoip:ru", "geoip:private", host]},
+                {"type": "field", "outboundTag": "direct",
+                 "ip": ["geoip:ru", "geoip:private", "119.29.29.29", "223.5.5.5", host]},
                 # WeChat → direct узким списком доменов. НЕ geosite:cn/geoip:cn —
                 # китайская geo-база превышает лимит памяти туннеля iOS (50 МБ).
                 {"type": "field", "outboundTag": "direct", "domain": WECHAT_DOMAINS},
