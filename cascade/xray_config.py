@@ -15,25 +15,31 @@ FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
                 "edge", "360", "qq", "random", "randomized"]
 
 # WeChat → direct: из РФ напрямую быстрее, чем крюком через Европу.
-# Узкий список доменов вместо geosite:cn/geoip:cn — китайская geo-база огромна
-# и превышает лимит памяти туннеля на iOS (Network Extension ~50 МБ).
+# Список корневых доменов вместо geosite:cn/geoip:cn — китайская geo-база огромна
+# и превышает лимит памяти туннеля на iOS (Network Extension ~50 МБ). Один
+# domain:qq.com накрывает всю qq.com-семью (weixin/wx/tc/video/v/wxs/dldir1...);
+# медиа-CDN WeChat живут на отдельных корнях (qpic.cn/qlogo.cn/myqcloud.com/
+# wechatos.net/smtcdns) — их domain:qq.com НЕ покрывает, перечислены явно.
 # Звонки WeChat (UDP) идут на TURN-серверы Tencent по доменам voip*.weixin.qq.com
 # → их IP кэшируются при DNS-резолве (см. dns-секцию) и сопоставляются с этими
 # правилами по IP. Чистый P2P (редко за NAT) может уйти в каскад — приемлемо.
 WECHAT_DOMAINS = [
-    "domain:weixin.qq.com",    # чат (long/short polling), статьи, voip-сигналинг
-    "domain:wx.qq.com",        # web/доп.
+    "domain:qq.com",           # вся qq.com-семья: чат, voip-сигналинг, Channels-видео
+                               # (tc/video/v.qq.com), статьи (mp.weixin), загрузки (dldir1)
+    "domain:qpic.cn",          # картинки: Moments (mmsns), статьи (mmbiz), стикеры
+    "domain:qlogo.cn",         # аватары (wx.qlogo.cn)
+    "domain:myqcloud.com",     # Tencent Cloud CDN, медиа мини-программ
+    "domain:gtimg.com",        # Tencent статика-CDN (фото/видео/файлы)
+    "domain:gtimg.cn",
+    "domain:url.cn",           # короткие ссылки
     "domain:weixin.com",
     "domain:wechat.com",       # международный WeChat
     "domain:wechatpay.com",    # WeChat Pay
     "domain:tenpay.com",       # платежи Tenpay
     "domain:servicewechat.com",  # мини-программы
-    "domain:qpic.cn",          # медиа моментов (mmsns.qpic.cn)
-    "domain:qlogo.cn",         # аватары (wx.qlogo.cn)
-    "domain:gtimg.com",        # Tencent CDN (фото/видео/файлы)
-    "domain:gtimg.cn",
-    "domain:url.cn",           # короткие ссылки
-    "domain:myqcloud.com",     # Tencent Cloud CDN
+    "domain:wechatos.net",     # зарубежный asset-CDN WeChat (CNAME картинок/стикеров)
+    "domain:smtcdns.com",      # Tencent Smart CDN (динамический CNAME-таргет медиа)
+    "domain:smtcdns.net",
 ]
 
 
