@@ -1,5 +1,22 @@
-from cascade.monitor import format_alert, decide_targets
+from cascade.monitor import format_alert, decide_targets, conntrack_usage, tls_handshake_ok
 from cascade.config import Config, ExitServer
+
+
+def test_conntrack_usage(tmp_path):
+    cnt = tmp_path / "count"; cnt.write_text("348\n")
+    mx = tmp_path / "max"; mx.write_text("8192\n")
+    count, maximum, pct = conntrack_usage(str(cnt), str(mx))
+    assert count == 348 and maximum == 8192
+    assert pct == round(100 * 348 / 8192, 1)
+
+
+def test_conntrack_usage_missing(tmp_path):
+    assert conntrack_usage(str(tmp_path / "nope"), str(tmp_path / "nope2")) == (None, None, None)
+
+
+def test_tls_handshake_ok_closed_port():
+    # порт 1 на localhost закрыт → хендшейк не состоится → False (не виснет)
+    assert tls_handshake_ok("127.0.0.1", 1, timeout=2) is False
 
 
 def test_decide_targets_all_exits():

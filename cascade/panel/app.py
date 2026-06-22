@@ -7,7 +7,8 @@ import subprocess
 from functools import wraps
 from pathlib import Path
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import (Flask, flash, redirect, render_template, request, send_file,
+                   session, url_for)
 
 from cascade import relay, sni, vpn
 from cascade.config import (CONFIG_PATH, SERVER_CREDS_DIR, load_config, save_config,
@@ -922,6 +923,32 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             flash(f"Ошибка: {e}", "error")
         return redirect(url_for("settings"))
 
+    @app.get("/boss/config/download")
+    @login_required
+    def config_download():
+        """Скачать текущий config.json — off-server копия для аварийного восстановления."""
+        if not Path(config_path).is_file():
+            flash("config.json не найден", "error")
+            return redirect(url_for("settings"))
+        return send_file(config_path, as_attachment=True,
+                         download_name="cascade-config-backup.json",
+                         mimetype="application/json")
+
+    @app.post("/boss/config/backup")
+    @login_required
+    def config_backup():
+        """Локальный бэкап конфига на мосту сейчас + включить ежесуточный cron."""
+        if not _check_csrf():
+            return redirect(url_for("settings"))
+        from cascade import backup as backup_mod
+        try:
+            dest = backup_mod.backup_config(config_path)
+            backup_mod.install_backup_cron(str(config_path))
+            flash(f"Бэкап создан: {dest.name}. Авто-бэкап (ежесуточно) включён.")
+        except Exception as e:
+            flash(f"Ошибка бэкапа: {e}", "error")
+        return redirect(url_for("settings"))
+
     @app.get("/boss/diag")
     @login_required
     def diag():
@@ -980,6 +1007,24 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
                 except Exception as e:
                     lines = [f"SSH-ошибка: {e}"]
                 sections.append({"title": f"Выход {ex.location} ({ex.ip})", "lines": lines})
+
+        # Глубокая проверка: conntrack-таблица + реальный TLS-хендшейк до выходов
+        # (TCP-up не ловит «слушает, но ТСПУ душит» — это ловит).
+        from cascade.monitor import conntrack_usage, tls_handshake_ok
+        deep_lines = ["=== Conntrack (использование таблицы) ==="]
+        cnt, mx, pct = conntrack_usage()
+        if cnt is None:
+            deep_lines.append("недоступно (/proc/sys/net/netfilter/nf_conntrack_*)")
+        else:
+            warn = "  ⚠️ близко к лимиту" if pct >= 80 else ""
+            deep_lines.append(f"{cnt}/{mx} ({pct}%){warn}")
+        deep_lines += ["", "=== TLS-хендшейк до выходов (глубже TCP-up) ==="]
+        for ex in (c.exit_servers if c else []):
+            ok = tls_handshake_ok(ex.ip, ex.vpn_port, ex.vpn_sni)
+            deep_lines.append(
+                f"{'✅' if ok else '❌'} {ex.location} {ex.ip}:{ex.vpn_port} (SNI {ex.vpn_sni})"
+            )
+        sections.append({"title": "Глубокая проверка (conntrack + TLS)", "lines": deep_lines})
 
         return render_template("diag.html", sections=sections,
                                exits=c.exit_servers if c else [])
