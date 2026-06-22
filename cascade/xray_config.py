@@ -144,13 +144,33 @@ def build_client_xray_config(
     uuid: str, public_key: str, short_id: str, host: str, sni: str,
     vpn_port: int, fingerprint: str = DEFAULT_FINGERPRINT,
     socks_port: int = 10808, http_port: int = 10809,
+    xhttp_path: str = "",
 ) -> str:
     """Клиентский config.json со сплит-routing: РФ → direct, прочее → каскад.
 
     host = IP моста (РФ), точка входа каскада — НЕ сервер выхода.
     geoip/geosite встроены в клиент, скачивать не нужно.
     Совместим с Happ, OneXray, v2rayNG, Nekoray, NekoBox (все на Xray-core).
+    xhttp_path задан → транспорт XHTTP+Reality (vision-flow ломает XHTTP → flow=""),
+    иначе raw TCP+Reality+vision (дефолт).
     """
+    # vision-flow совместим только с raw TCP; XHTTP требует пустой flow
+    realitySettings = {
+        "serverName": sni,
+        "fingerprint": fingerprint,
+        "publicKey": public_key,
+        "shortId": short_id,
+        "spiderX": "",
+    }
+    if xhttp_path:
+        flow = ""
+        stream = {"network": "xhttp", "security": "reality",
+                  "realitySettings": realitySettings,
+                  "xhttpSettings": {"mode": "auto", "path": f"/{xhttp_path}"}}
+    else:
+        flow = "xtls-rprx-vision"
+        stream = {"network": "tcp", "security": "reality",
+                  "realitySettings": realitySettings}
     proxy_out = {
         "tag": "proxy",
         "protocol": "vless",
@@ -158,20 +178,10 @@ def build_client_xray_config(
             "vnext": [{
                 "address": host,
                 "port": vpn_port,
-                "users": [{"id": uuid, "encryption": "none", "flow": "xtls-rprx-vision"}],
+                "users": [{"id": uuid, "encryption": "none", "flow": flow}],
             }]
         },
-        "streamSettings": {
-            "network": "tcp",
-            "security": "reality",
-            "realitySettings": {
-                "serverName": sni,
-                "fingerprint": fingerprint,
-                "publicKey": public_key,
-                "shortId": short_id,
-                "spiderX": "",
-            },
-        },
+        "streamSettings": stream,
     }
     config = {
         "log": {"loglevel": "warning"},
@@ -288,4 +298,50 @@ def client_profile_url(uuid: str, exit_server, relay_ip: str, name: str,
         short_id=exit_server.reality_short_id,
         name=f"{name} [{exit_server.location}]{suffix}",
         fingerprint=fingerprint,
+    )
+
+
+# ---------------------------------------------------------------------------
+# XHTTP+Reality — клиентский профиль (PoC, транспорт вместо raw TCP).
+# Серверный inbound и DNAT моста уже есть (build_xray_config + wizard/menu/panel).
+# Реально через мост: host=relay_ip, port=exit.vpn_xhttp_port (мост слушает его и
+# DNAT'ит на выход:vpn_xhttp_port). vless_xhttp_url (security=tls) — отдельный
+# режим, для нашего Reality-inbound нужен этот, с pbk/sid.
+# ---------------------------------------------------------------------------
+
+def vless_xhttp_reality_url(uuid, host, port, sni, public_key, short_id, xhttp_path,
+                            name, fingerprint=DEFAULT_FINGERPRINT):
+    """VLESS-ссылка XHTTP поверх Reality (flow пустой — vision ломает XHTTP)."""
+    return (
+        f"vless://{uuid}@{host}:{port}"
+        f"?encryption=none&security=reality&sni={sni}&fp={fingerprint}"
+        f"&pbk={public_key}&sid={short_id}"
+        f"&type=xhttp&path=%2F{xhttp_path}&mode=auto"
+        f"#{name}"
+    )
+
+
+def client_xhttp_profile_json(uuid: str, exit_server, relay_ip: str,
+                              remarks: str = "",
+                              fingerprint: str = DEFAULT_FINGERPRINT) -> str:
+    """Клиентский config.json XHTTP+Reality через мост (тот же сплит-routing)."""
+    cfg = json.loads(build_client_xray_config(
+        uuid=uuid, public_key=exit_server.reality_public_key,
+        short_id=exit_server.reality_short_id, host=relay_ip,
+        sni=exit_server.vpn_sni, vpn_port=exit_server.vpn_xhttp_port,
+        fingerprint=fingerprint, xhttp_path=exit_server.vpn_xhttp_path,
+    ))
+    if remarks:
+        cfg = {"remarks": remarks, **cfg}
+    return json.dumps(cfg, indent=2, ensure_ascii=False)
+
+
+def client_xhttp_profile_url(uuid: str, exit_server, relay_ip: str, name: str,
+                             fingerprint: str = DEFAULT_FINGERPRINT) -> str:
+    """VLESS-XHTTP-ссылка через мост под один выход."""
+    return vless_xhttp_reality_url(
+        uuid=uuid, host=relay_ip, port=exit_server.vpn_xhttp_port,
+        sni=exit_server.vpn_sni, public_key=exit_server.reality_public_key,
+        short_id=exit_server.reality_short_id, xhttp_path=exit_server.vpn_xhttp_path,
+        name=f"{name} [{exit_server.location}] xhttp", fingerprint=fingerprint,
     )
