@@ -1,10 +1,44 @@
 """Мониторинг сервера выхода + Telegram-уведомления + авто-рестарт."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import requests
 
 from cascade.config import Config, mtproto_port_exit
 from cascade.ssh import ServerConnection, tcp_connect
+
+
+def conntrack_usage(count_path="/proc/sys/net/netfilter/nf_conntrack_count",
+                    max_path="/proc/sys/net/netfilter/nf_conntrack_max"):
+    """(count, max, pct) использования conntrack-таблицы на мосту.
+    liberal-mode conntrack толерантен к bad-ACK RST ТСПУ → таблица копится; при
+    переполнении ядро молча дропает NEW. (None, None, None) если /proc недоступен."""
+    try:
+        count = int(Path(count_path).read_text().strip())
+        maximum = int(Path(max_path).read_text().strip())
+    except (OSError, ValueError):
+        return (None, None, None)
+    pct = round(100 * count / maximum, 1) if maximum else 0.0
+    return (count, maximum, pct)
+
+
+def tls_handshake_ok(ip: str, port: int, sni: str = "", timeout: int = 6) -> bool:
+    """Реальный TLS-хендшейк до ip:port — глубже, чем TCP-up.
+
+    Reality при «чужом» ClientHello проксирует на dest-домен (steal-self) и отдаёт
+    его серт → хендшейк ЗАВЕРШАЕТСЯ, если inbound жив. TCP-открыт, но TLS висит/рвётся
+    = Xray лёг ИЛИ ТСПУ душит поток («слушает ≠ работает через ТСПУ», см. §17)."""
+    import socket
+    import ssl
+    ctx = ssl._create_unverified_context()
+    ctx.check_hostname = False
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as sock:
+            with ctx.wrap_socket(sock, server_hostname=sni or None) as ssock:
+                return bool(ssock.version())
+    except (OSError, ssl.SSLError, ValueError):
+        return False
 
 
 def decide_targets(cfg: Config) -> "list[tuple[str, str, int]]":
