@@ -112,3 +112,12 @@ Reality `serverNames`, порт, `shortId`, `publicKey` — всё это леж
   - **monitor был багом:** проверял/рестартил все mtg-порты на [0]=GER → порт на EST давал ложный красный на дашборде. Найдено code-review, пропущено при первой правке. Теперь per-port.
 - **raw-iperf3 мост↔выход = НЕвалидная метрика скорости.** ТСПУ DPI душит голый TCP (EST raw=0 байт), а через Reality 48 Мбит. Реальная скорость — fast.com через каскад. Кнопка «Тест скорости» в панели врёт. См. память `project_cascade_speedtest_metric`.
 - **MTProto «слушает» ≠ «работает через ТСПУ».** mtg active+LISTEN на выходе → монитор зелёный (TCP с моста доходит), но Fake-TLS ТСПУ может резать — проверять только с телефона из РФ. mtg Fake-TLS мёртв в РФ (с 01.04.2026); живой кандидат = TELEMT (bridge), он на [0], вне per-port (намеренно).
+
+## Сессия 2026-06-22 (бэкап + deep-probe + альтернативные транспорты PoC)
+- Тесты **180/180**. Полная картина — PROJECT.md §18. Коммиты `f0c8550`, `15a2269`.
+- **Живой A/B raw TCP vs XHTTP на одном выходе = разницы нет.** raw-TCP-Reality НЕ задушен; XHTTP прироста не даёт. **Текущий raw TCP оставляем.** XHTTP-код = страховка. (Ранний вывод «XHTTP вытащил GER 3→80» — РЕТРАКЦИЯ: сравнивал с устаревшей цифрой, не контроль.)
+- **XHTTP клиентский профиль:** `build_client_xray_config(xhttp_path=...)` (дефест="" → прежний tcp+vision, аддитивно), `client_xhttp_profile_json/url`, `vless_xhttp_reality_url`. Серверный inbound + DNAT моста были раньше. Роутинг транспорт-независим — XHTTP-JSON несёт тот же сплит, голая ссылка нет.
+- **`cascade/hysteria.py` (новый):** Hysteria2 PoC по SSH (Salamander, self-signed+pinSHA256, UDP) + hy2-ссылка. Живьём: UDP проходит (ТСПУ НЕ блокирует), но QUIC не достраивается до LTE-CGNAT-мобилы. Причина (консультанты): MTU + l4-25 packet-limit. Припаркован (в Happ ещё и теряет роутинг — URI-only). **Happ 4.11 выпилил allowInsecure → hy2 нужен `pinSHA256`, не `insecure=1`.**
+- **`cascade/backup.py` (новый):** `backup_config` (ротация 7) + `install_backup_cron` (cron.d, без CLI). Панель Настройки→Сервер: «Скачать бэкап» (`/boss/config/download`, off-server DR) + «Бэкап сейчас + авто» (`/boss/config/backup`).
+- **monitor:** `tls_handshake_ok` (deep-probe — реальный TLS-хендшейк, ловит «слушает но ТСПУ душит») + `conntrack_usage`. Выведены в Диагностику → «Глубокая проверка». `run_check`/авто-рестарт НЕ тронуты.
+- **Pitfall:** `exits_remove` (панель) снимает только relay основного порта — НЕ xhttp-порт (орфан). CLI `menu.py` чистит и xhttp/mtproto. TODO дочистить панельную версию.
