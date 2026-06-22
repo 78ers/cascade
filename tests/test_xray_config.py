@@ -246,6 +246,70 @@ def test_profile_default_fingerprint_firefox():
     assert proxy["streamSettings"]["realitySettings"]["fingerprint"] == "firefox"
 
 
+from cascade.xray_config import (
+    vless_xhttp_reality_url, client_xhttp_profile_json, client_xhttp_profile_url,
+)
+
+
+def _exit_xhttp():
+    return ExitServer(id="ger", location="GER", ip="9.9.9.9",
+                      relay_port=8444, vpn_port=8444, vpn_sni="www.bmw.de",
+                      vpn_xhttp_enabled=True, vpn_xhttp_port=8445, vpn_xhttp_path="p1path",
+                      reality_public_key="PBK", reality_short_id="SID")
+
+
+def test_client_config_default_unchanged_is_tcp_vision():
+    # БЕЗ xhttp_path профиль остаётся ровно прежним (tcp+vision) — текущие клиенты не страдают
+    data = json.loads(build_client_xray_config(
+        uuid="U", public_key="P", short_id="S", host="h", sni="s", vpn_port=8444,
+    ))
+    proxy = [o for o in data["outbounds"] if o["tag"] == "proxy"][0]
+    assert proxy["streamSettings"]["network"] == "tcp"
+    assert proxy["settings"]["vnext"][0]["users"][0]["flow"] == "xtls-rprx-vision"
+    assert "xhttpSettings" not in proxy["streamSettings"]
+
+
+def test_client_config_xhttp_switches_transport():
+    data = json.loads(build_client_xray_config(
+        uuid="U", public_key="P", short_id="S", host="h", sni="s", vpn_port=8445,
+        xhttp_path="p1path",
+    ))
+    proxy = [o for o in data["outbounds"] if o["tag"] == "proxy"][0]
+    ss = proxy["streamSettings"]
+    assert ss["network"] == "xhttp"
+    assert ss["security"] == "reality"               # не tls — наш inbound на Reality
+    assert ss["xhttpSettings"]["path"] == "/p1path"
+    # vision-flow ломает XHTTP → flow обязан быть пустым
+    assert proxy["settings"]["vnext"][0]["users"][0]["flow"] == ""
+    # сплит-routing сохранён (РФ/WeChat → direct)
+    rules = data["routing"]["rules"]
+    all_direct = [d for r in rules if r["outboundTag"] == "direct" and "domain" in r for d in r["domain"]]
+    assert "geosite:category-ru" in all_direct
+
+
+def test_vless_xhttp_reality_url_has_pbk_sid():
+    url = vless_xhttp_reality_url(
+        uuid="U", host="5.5.5.5", port=8445, sni="www.bmw.de",
+        public_key="PBK", short_id="SID", xhttp_path="p1", name="pc",
+    )
+    assert url.startswith("vless://U@5.5.5.5:8445?")
+    assert "type=xhttp" in url
+    assert "security=reality" in url     # Reality, не tls
+    assert "pbk=PBK" in url and "sid=SID" in url
+    assert "path=%2Fp1" in url
+
+
+def test_client_xhttp_profile_uses_bridge_and_xhttp_port():
+    # cascade через мост: host=relay_ip, port=vpn_xhttp_port, path из выхода
+    e = _exit_xhttp()
+    data = json.loads(client_xhttp_profile_json("u-1", e, relay_ip="5.5.5.5"))
+    vnext = [o for o in data["outbounds"] if o["tag"] == "proxy"][0]["settings"]["vnext"][0]
+    assert vnext["address"] == "5.5.5.5"   # мост РФ
+    assert vnext["port"] == 8445           # vpn_xhttp_port
+    url = client_xhttp_profile_url("u-1", e, relay_ip="5.5.5.5", name="phone")
+    assert "@5.5.5.5:8445" in url and "path=%2Fp1path" in url
+
+
 def test_server_config_no_sniffing():
     # Выход — «тупая труба», sniffing только жрёт CPU. Не должен быть в inbound.
     data = json.loads(build_xray_config(
