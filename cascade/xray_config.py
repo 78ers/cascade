@@ -23,10 +23,9 @@ FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
 # Звонки WeChat (UDP) идут на TURN-серверы Tencent по доменам voip*.weixin.qq.com
 # → их IP кэшируются при DNS-резолве (см. dns-секцию) и сопоставляются с этими
 # правилами по IP. Чистый P2P (редко за NAT) может уйти в каскад — приемлемо.
-# geosite:tencent — backstop поверх явного списка (ловит Tencent-домены, что мы
-# пропустили). Категория МЕЛКАЯ (не cn) → влезает в лимит RAM Happ ~50МБ (базовый
-# профиль ~18МБ). Если Happ упадёт «Лимит памяти туннеля 50МБ» ИЛИ Xray не стартует
-# (категории нет в урезанном geosite.dat) — убрать эту строку, явный список останется.
+# geosite:tencent (backstop-категория) УБРАН 2026-06-26 — самый тяжёлый по RAM при
+# росте встроенных geo-баз Happ; явный список ниже сверен с эталоном blackmatrix7
+# WeChat.yaml (+ Grok/Gemini) и покрывает экосистему. Новый Tencent-домен — дописать сюда.
 WECHAT_DOMAINS = [
     "domain:qq.com",           # вся qq.com-семья: чат, voip-сигналинг, Channels-видео
                                # (tc/video/v.qq.com), статьи (mp.weixin), загрузки (dldir1)
@@ -44,7 +43,15 @@ WECHAT_DOMAINS = [
     "domain:wechatos.net",     # зарубежный asset-CDN WeChat (CNAME картинок/стикеров)
     "domain:smtcdns.com",      # Tencent Smart CDN (динамический CNAME-таргет медиа)
     "domain:smtcdns.net",
-    "geosite:tencent",         # backstop: вся Tencent-сеть категорией (future-proof; следить за RAM Happ)
+    # дополнено 2026-06-26 (сверка blackmatrix7 WeChat.yaml + Grok + Gemini):
+    "domain:weixinbridge.com",   # открытие внешних ссылок/webview/deep-link внутри WeChat
+    "domain:weixinsxy.com",      # служебные эндпоинты / раздача ресурсов
+    "domain:wechatlegal.net",    # auth-политики / compliance / логин-handshake
+    "domain:iot-tencent.com",    # WeChat IoT / устройства
+    "domain:wechatpay.cn",       # домашние CDN-зеркала WeChat Pay
+    "domain:tencentmap.com",     # карты / локация в мини-программах
+    "full:apd-pcdnwxlogin.teg.tencent-cloud.net",  # P-CDN логина (точечно, не весь tencent-cloud.net)
+    "full:slife.xy-asia.com",    # сервис WeChat (точечно)
 ]
 
 
@@ -190,6 +197,8 @@ def build_client_xray_config(
                 # РФ-домены резолвим через РФ-DNS (Яндекс): правильные РФ IP, запрос внутри страны
                 {"address": "77.88.8.8", "domains": ["geosite:category-ru"],
                  "expectIPs": ["geoip:ru"]},
+                # РФ-TLD резолвим РФ-DNS (без expectIPs: .ru на иностранном CDN тоже резолвится)
+                {"address": "77.88.8.8", "domains": ["domain:ru", "domain:su", "domain:xn--p1ai"]},
                 # WeChat/Tencent — китайский DNS (DNSPod = собственный резолвер Tencent):
                 # отдаёт мейнланд-edge с ПОЛНЫМ кэшем контента. RU/международный резолвер даёт
                 # «international» edge с неполным кэшем → Channels-видео/мини-программы не грузятся.
@@ -231,6 +240,10 @@ def build_client_xray_config(
                 # 119.29.29.29 (DNSPod) и 223.5.5.5 (AliDNS) — китайские DNS-резолверы WeChat:
                 # их запросы тоже direct из РФ, иначе уйдут в каскад → европейский edge.
                 {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru"]},
+                # весь .ru/.su/.рф → direct: ловит РФ-сайты, что урезанный geosite.dat в Happ пропускает
+                # (напр. госсайты/банки на корневом сертификате Минцифры — иначе утекают в каскад)
+                {"type": "field", "outboundTag": "direct",
+                 "domain": ["domain:ru", "domain:su", "domain:xn--p1ai"]},
                 {"type": "field", "outboundTag": "direct",
                  "ip": ["geoip:ru", "geoip:private", "119.29.29.29", "223.5.5.5", host]},
                 # WeChat → direct узким списком доменов. НЕ geosite:cn/geoip:cn —

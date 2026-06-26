@@ -142,6 +142,9 @@ def test_build_client_config_split_routing():
     assert "domain:qq.com" in all_direct_domains  # WeChat → direct списком корневых доменов
     assert "geosite:cn" not in all_direct_domains  # китайская geo-база НЕ грузится (лимит памяти iOS 50МБ)
     assert "geosite:telegram" not in all_direct_domains  # Telegram → каскад через catch-all, не direct
+    assert "domain:weixinbridge.com" in all_direct_domains  # добавленные WeChat-корни
+    assert "domain:ru" in all_direct_domains  # РФ-TLD (.ru/.su/.рф) → direct
+    assert "geosite:tencent" not in all_direct_domains  # тяжёлый backstop убран (RAM Happ)
     direct_ip = [r for r in rules if r["outboundTag"] == "direct" and "ip" in r][0]
     assert "geoip:ru" in direct_ip["ip"]
     assert "geoip:private" in direct_ip["ip"]
@@ -167,6 +170,10 @@ def test_build_client_config_dns_split():
           if isinstance(s, dict) and "domain:qq.com" in s.get("domains", [])]
     assert wc and wc[0]["address"] == "119.29.29.29"
     assert "expectIPs" not in wc[0]
+    # РФ-TLD резолвятся РФ-DNS Яндекс
+    ru_tld = [s for s in servers
+              if isinstance(s, dict) and "domain:ru" in s.get("domains", [])]
+    assert ru_tld and ru_tld[0]["address"] == "77.88.8.8"
     # прочее — через DoH (строка-URL)
     assert any(isinstance(s, str) and s.startswith("https://") for s in servers)
 
