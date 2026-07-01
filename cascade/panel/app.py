@@ -1295,8 +1295,9 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             data = f"{vless_url}\n{sub_url}"
         else:
             data = f"https://{c.domain}/sub/{token}?exit={eid}"
-        r = subprocess.run(["qrencode", "-t", "PNG", "-o", "-", "-m", "2"],
-                           input=data.encode(), capture_output=True, timeout=5)
+        r = subprocess.run(["qrencode", "-t", "PNG", "-o", "-", "-m", "2",
+                            "-l", "L", "-s", "8", "--", data],
+                           capture_output=True, timeout=5)
         if r.returncode != 0:
             return "", 500
         return Response(r.stdout, mimetype="image/png",
