@@ -62,6 +62,27 @@
     }).catch(function () { toast("Не удалось скопировать", false); });
   });
 
+  // Скачивание QR-кода (SVG → файл)
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-download-qr]");
+    if (!btn) return;
+    var card = btn.closest(".share-card");
+    if (!card) return;
+    var svg = card.querySelector(".share-qr svg");
+    if (!svg) return;
+    var svgData = new XMLSerializer().serializeToString(svg);
+    var blob = new Blob([svgData], { type: "image/svg+xml" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "qr-" + btn.dataset.downloadQr + ".svg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("Файл скачан");
+  });
+
   // Подтверждение по data-confirm перед сабмитом формы
   document.addEventListener("submit", function (e) {
     var form = e.target;
