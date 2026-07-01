@@ -26,34 +26,17 @@
 
       {% if p.sub_url %}
       <div class="share-card">
-        <div class="share-card-head">{{ p.exit }} — Подписка</div>
+        <div class="share-card-head">{{ p.exit }} — Шаг 2: Подписка (после подключения)</div>
         <div class="share-body">
           {% if p.sub_qr %}
           <div class="share-qr">{{ p.sub_qr | safe }}</div>
           {% endif %}
           <div style="flex:1">
+            <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сначала подключись по VLESS (Шаг 1), потом сканируй этот QR</div>
             <div class="share-link">{{ p.sub_url }}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
               <a href="{{ url_for('qr_png', token=p.sub_token, eid=p.eid, type='sub') }}" class="btn btn-glass" download>⬇ PNG</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if p.mode == 'cascade' and p.sub_url %}
-      <div class="share-card">
-        <div class="share-card-head">{{ p.exit }} — VLESS + подписка</div>
-        <div class="share-body">
-          {% if p.bootstrap_qr %}
-          <div class="share-qr">{{ p.bootstrap_qr | safe }}</div>
-          {% endif %}
-          <div style="flex:1">
-            <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
-              <a href="{{ url_for('qr_png', token=p.sub_token, eid=p.eid, type='bootstrap') }}" class="btn btn-glass" download>⬇ PNG</a>
             </div>
           </div>
         </div>
@@ -65,7 +48,7 @@
 
   {% for p in profiles %}
   <div class="share-card">
-    <div class="share-card-head">{{ p.exit }} — {{ 'Direct (прямой)' if p.mode == 'direct' else 'Cascade (через мост)' }}</div>
+    <div class="share-card-head">{{ p.exit }} — {{ 'Direct (прямой)' if p.mode == 'direct' else 'Шаг 1: Cascade (через мост)' }}</div>
     <div class="share-body">
       {% if p.qr %}
       <div class="share-qr">{{ p.qr | safe }}</div>
