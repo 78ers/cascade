@@ -185,8 +185,8 @@ def _clients_view(c, relay_ip: str) -> list:
                 cascade_url = next((p["url"] for p in profiles
                                     if p["mode"] == "cascade" and p["eid"] == ex.id), "")
                 bootstrap_qr = _qr_svg(f"{cascade_url}\n{sub_url}") if cascade_url else ""
-                sub_qrs.append({"exit": ex.location, "url": sub_url, "qr": sub_qr})
-                bootstrap_qrs.append({"exit": ex.location, "url": cascade_url,
+                sub_qrs.append({"exit": ex.location, "eid": ex.id, "url": sub_url, "qr": sub_qr})
+                bootstrap_qrs.append({"exit": ex.location, "eid": ex.id, "url": cascade_url,
                                       "sub_url": sub_url, "qr": bootstrap_qr})
         result.append({"c": cl, "profiles": profiles,
                         "sub_token": cl.sub_token,
@@ -409,9 +409,10 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
                 bootstrap_qr = ""
                 if sub_url and not direct:
                     bootstrap_qr = _qr_svg(f"{url}\n{sub_url}")
-                profiles.append({"exit": ex.location,
+                profiles.append({"exit": ex.location, "eid": ex.id,
                                  "mode": "direct" if direct else "cascade",
                                  "url": url, "qr": _qr_svg(url),
+                                 "sub_token": client.sub_token or "",
                                  "sub_url": sub_url, "sub_qr": sub_qr,
                                  "bootstrap_qr": bootstrap_qr})
         return render_template("client_share.html", profiles=profiles, name=client.name)
@@ -1271,5 +1272,34 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             save_config(c, config_path)
             flash(f"Подписка для {client.name} создана")
         return redirect(url_for("clients"))
+
+    @app.get("/qr/<token>/<eid>.png")
+    def qr_png(token, eid):
+        """PNG QR-код: /qr/<sub_token>/<exit_id>.png?type=sub|bootstrap"""
+        from flask import Response
+        c = cfg()
+        if not c:
+            return "", 404
+        client = share_mod.find_by_sub_token(c, token) if c else None
+        ex = next((e for e in c.exit_servers if e.id == eid), None)
+        if not client or not ex:
+            return "", 404
+        qr_type = request.args.get("type", "sub")
+        if qr_type == "bootstrap":
+            relay_ip = _relay_ip()
+            if not relay_ip:
+                return "", 503
+            vless_url = client_profile_url(client.uuid, ex, relay_ip, client.name,
+                                           direct=False, fingerprint=c.fingerprint)
+            sub_url = f"https://{c.domain}/sub/{token}?exit={eid}"
+            data = f"{vless_url}\n{sub_url}"
+        else:
+            data = f"https://{c.domain}/sub/{token}?exit={eid}"
+        r = subprocess.run(["qrencode", "-t", "PNG", "-o", "-", "-m", "2", data],
+                           capture_output=True, timeout=5)
+        if r.returncode != 0:
+            return "", 500
+        return Response(r.stdout, mimetype="image/png",
+                        headers={"Cache-Control": "no-cache"})
 
     return app

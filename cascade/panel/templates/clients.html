@@ -108,7 +108,7 @@
                 <div style="flex:1;min-width:0">
                   <div class="profile-tag">{{ sq.exit }} · Только подписка</div>
                 </div>
-                {% if sq.qr %}<button class="btn btn-glass btn-sm" data-download-qr="sub-{{ sq.exit }}">⬇</button>{% endif %}
+                <a href="{{ url_for('qr_png', token=it.sub_token, eid=sq.eid, type='sub') }}" class="btn btn-glass btn-sm" download>⬇</a>
               </div>
               {% endfor %}
               {% for bq in it.bootstrap_qrs %}
@@ -118,7 +118,7 @@
                 <div style="flex:1;min-width:0">
                   <div class="profile-tag">{{ bq.exit }} · VLESS + подписка</div>
                 </div>
-                <button class="btn btn-glass btn-sm" data-download-qr="bootstrap-{{ bq.exit }}">⬇</button>
+                <a href="{{ url_for('qr_png', token=it.sub_token, eid=bq.eid, type='bootstrap') }}" class="btn btn-glass btn-sm" download>⬇</a>
               </div>
               {% endif %}
               {% endfor %}
