@@ -66,9 +66,9 @@
   document.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-download-qr]");
     if (!btn) return;
-    var card = btn.closest(".share-card");
-    if (!card) return;
-    var svg = card.querySelector(".share-qr svg");
+    var row = btn.closest(".profile-row") || btn.closest(".share-card");
+    if (!row) return;
+    var svg = row.querySelector(".qr-box svg, .share-qr svg");
     if (!svg) return;
     var svgData = new XMLSerializer().serializeToString(svg);
     var blob = new Blob([svgData], { type: "image/svg+xml" });
