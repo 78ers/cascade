@@ -62,7 +62,7 @@
     }).catch(function () { toast("Не удалось скопировать", false); });
   });
 
-  // Скачивание QR-кода (SVG → PNG)
+  // Скачивание QR-кода (SVG → файл)
   document.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-download-qr]");
     if (!btn) return;
@@ -71,28 +71,16 @@
     var svg = row.querySelector(".qr-box svg, .share-qr svg");
     if (!svg) return;
     var svgData = new XMLSerializer().serializeToString(svg);
-    var canvas = document.createElement("canvas");
-    var ctx = canvas.getContext("2d");
-    var img = new Image();
-    img.onload = function () {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      canvas.toBlob(function (blob) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url;
-        a.download = "qr-" + btn.dataset.downloadQr + ".png";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        toast("Файл скачан");
-      }, "image/png");
-    };
-    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+    var blob = new Blob([svgData], { type: "image/svg+xml" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "qr-" + btn.dataset.downloadQr + ".svg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("Файл скачан");
   });
 
   // Подтверждение по data-confirm перед сабмитом формы
