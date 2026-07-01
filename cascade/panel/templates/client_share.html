@@ -29,7 +29,10 @@
       {% endif %}
       <div style="flex:1">
         <div class="share-link">{{ p.sub_url }}</div>
-        <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
+          {% if p.sub_qr %}<button class="btn btn-glass" data-download-qr="sub">⬇ Скачать</button>{% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -45,7 +48,10 @@
       {% endif %}
       <div style="flex:1">
         <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
-        <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
+          {% if p.bootstrap_qr %}<button class="btn btn-glass" data-download-qr="bootstrap">⬇ Скачать</button>{% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -61,7 +67,10 @@
       {% endif %}
       <div style="flex:1">
         <div class="share-link">{{ p.url }}</div>
-        <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}">📋 Копировать</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}">📋 Копировать</button>
+          {% if p.qr %}<button class="btn btn-glass" data-download-qr="vless">⬇ Скачать</button>{% endif %}
+        </div>
       </div>
     </div>
   </div>
