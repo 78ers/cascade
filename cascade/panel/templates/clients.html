@@ -108,6 +108,7 @@
                 <div style="flex:1;min-width:0">
                   <div class="profile-tag">{{ sq.exit }} · Только подписка</div>
                 </div>
+                {% if sq.qr %}<button class="btn btn-glass btn-sm" data-download-qr="sub-{{ sq.exit }}">⬇</button>{% endif %}
               </div>
               {% endfor %}
               {% for bq in it.bootstrap_qrs %}
@@ -117,6 +118,7 @@
                 <div style="flex:1;min-width:0">
                   <div class="profile-tag">{{ bq.exit }} · VLESS + подписка</div>
                 </div>
+                <button class="btn btn-glass btn-sm" data-download-qr="bootstrap-{{ bq.exit }}">⬇</button>
               </div>
               {% endif %}
               {% endfor %}
