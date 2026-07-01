@@ -1276,6 +1276,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
     @app.get("/qr/<token>/<eid>.png")
     def qr_png(token, eid):
         """PNG QR-код: /qr/<sub_token>/<exit_id>.png?type=sub|bootstrap"""
+        import tempfile, os
         from flask import Response
         c = cfg()
         if not c:
@@ -1295,12 +1296,18 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             data = f"{vless_url}\n{sub_url}"
         else:
             data = f"https://{c.domain}/sub/{token}?exit={eid}"
-        r = subprocess.run(["qrencode", "-t", "PNG", "-o", "-", "-m", "2",
-                            "-l", "L", "-s", "8", "--", data],
-                           capture_output=True, timeout=5)
-        if r.returncode != 0:
-            return "", 500
-        return Response(r.stdout, mimetype="image/png",
-                        headers={"Cache-Control": "no-cache"})
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        try:
+            tmp.write(data)
+            tmp.close()
+            r = subprocess.run(["qrencode", "-t", "PNG", "-o", "-", "-m", "2",
+                                "-l", "L", "-s", "8", "-r", tmp.name],
+                               capture_output=True, timeout=5)
+            if r.returncode != 0:
+                return "", 500
+            return Response(r.stdout, mimetype="image/png",
+                            headers={"Cache-Control": "no-cache"})
+        finally:
+            os.unlink(tmp.name)
 
     return app
