@@ -35,7 +35,7 @@
             <div class="share-link">{{ p.sub_url }}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
-              {% if p.sub_qr %}<button class="btn btn-glass" data-download-qr="sub-{{ p.exit|replace(' ','-') }}">⬇ Скачать</button>{% endif %}
+              <a href="{{ url_for('qr_png', token=p.sub_token, eid=p.eid, type='sub') }}" class="btn btn-glass" download>⬇ PNG</a>
             </div>
           </div>
         </div>
@@ -53,7 +53,7 @@
             <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
-              {% if p.bootstrap_qr %}<button class="btn btn-glass" data-download-qr="bootstrap-{{ p.exit|replace(' ','-') }}">⬇ Скачать</button>{% endif %}
+              <a href="{{ url_for('qr_png', token=p.sub_token, eid=p.eid, type='bootstrap') }}" class="btn btn-glass" download>⬇ PNG</a>
             </div>
           </div>
         </div>
@@ -74,7 +74,6 @@
         <div class="share-link">{{ p.url }}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}">📋 Копировать</button>
-          {% if p.qr %}<button class="btn btn-glass" data-download-qr="vless-{{ p.exit|replace(' ','-') }}-{{ p.mode }}">⬇ Скачать</button>{% endif %}
         </div>
       </div>
     </div>
