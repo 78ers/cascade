@@ -173,9 +173,23 @@ def _client_profiles(c, client, relay_ip: str) -> list:
 
 def _clients_view(c, relay_ip: str) -> list:
     """Клиенты с их vless+JSON-профилями (per выход×режим) для страницы «Клиенты»."""
-    return [{"c": cl, "profiles": _client_profiles(c, cl, relay_ip),
-             "sub_token": cl.sub_token}
-            for cl in (c.clients if c else [])]
+    result = []
+    for cl in (c.clients if c else []):
+        profiles = _client_profiles(c, cl, relay_ip)
+        sub_url = ""
+        sub_qr = ""
+        bootstrap_qr = ""
+        if cl.sub_token and c.domain:
+            sub_url = f"https://{c.domain}/sub/{cl.sub_token}"
+            sub_qr = _qr_svg(sub_url)
+            cascade_url = next((p["url"] for p in profiles if p["mode"] == "cascade"), "")
+            if cascade_url:
+                bootstrap_qr = _qr_svg(f"{cascade_url}\n{sub_url}")
+        result.append({"c": cl, "profiles": profiles,
+                        "sub_token": cl.sub_token,
+                        "sub_url": sub_url, "sub_qr": sub_qr,
+                        "bootstrap_qr": bootstrap_qr})
+    return result
 
 
 def _ensure_host_key(ip: str, port: int) -> None:
@@ -380,14 +394,21 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             # без IP моста cascade-ссылки были бы битыми (host пустой) — не отдаём
             return render_template("client_share.html", profiles=[], name=client.name,
                                    error="Сервер временно недоступен, попробуйте позже")
+        sub_url = f"https://{c.domain}/sub/{client.sub_token}" if client.sub_token and c.domain else ""
+        sub_qr = _qr_svg(sub_url) if sub_url else ""
         profiles = []
         for ex in c.exit_servers:
             for direct in (False, True):
                 url = client_profile_url(client.uuid, ex, relay_ip, client.name,
                                          direct=direct, fingerprint=c.fingerprint)
+                bootstrap_qr = ""
+                if sub_url and not direct:
+                    bootstrap_qr = _qr_svg(f"{url}\n{sub_url}")
                 profiles.append({"exit": ex.location,
                                  "mode": "direct" if direct else "cascade",
-                                 "url": url, "qr": _qr_svg(url)})
+                                 "url": url, "qr": _qr_svg(url),
+                                 "sub_url": sub_url, "sub_qr": sub_qr,
+                                 "bootstrap_qr": bootstrap_qr})
         return render_template("client_share.html", profiles=profiles, name=client.name)
 
     @app.get("/boss/exits")

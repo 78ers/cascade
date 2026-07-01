@@ -18,6 +18,40 @@
   {% elif not profiles %}
   <div class="share-error">Нет доступных профилей</div>
   {% else %}
+
+  {% set p = profiles[0] %}
+  {% if p.sub_url %}
+  <div class="share-card">
+    <div class="share-card-head">Подписка (только HTTPS)</div>
+    <div class="share-body">
+      {% if p.sub_qr %}
+      <div class="share-qr">{{ p.sub_qr | safe }}</div>
+      {% endif %}
+      <div style="flex:1">
+        <div class="share-link">{{ p.sub_url }}</div>
+        <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% for p in profiles %}
+  {% if p.mode == 'cascade' and p.sub_url %}
+  <div class="share-card">
+    <div class="share-card-head">VLESS + подписка (для первого подключения)</div>
+    <div class="share-body">
+      {% if p.bootstrap_qr %}
+      <div class="share-qr">{{ p.bootstrap_qr | safe }}</div>
+      {% endif %}
+      <div style="flex:1">
+        <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
+        <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
   {% for p in profiles %}
   <div class="share-card">
     <div class="share-card-head">{{ p.exit }} — {{ 'Direct (прямой)' if p.mode == 'direct' else 'Cascade (через мост)' }}</div>

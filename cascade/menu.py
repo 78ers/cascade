@@ -195,8 +195,18 @@ def vpn_menu(cfg: "Config | None") -> None:
             client = next(c for c in cfg.clients if c.name == pick)
             if client.sub_token and cfg.domain:
                 url = f"https://{cfg.domain}/sub/{client.sub_token}"
-                print(f"\n  {url}")
+                print(f"\n  Подписка: {url}")
                 qr(url)
+                relay_ip = _relay_ip(st)
+                if relay_ip:
+                    from cascade.xray_config import client_profile_url
+                    ex = cfg.exit_servers[0] if cfg.exit_servers else None
+                    if ex:
+                        vless_url = client_profile_url(client.uuid, ex, relay_ip,
+                                                       client.name, direct=False,
+                                                       fingerprint=cfg.fingerprint)
+                        print(f"\n  VLESS + подписка (для первого подключения):")
+                        qr(f"{vless_url}\n{url}")
             elif client.sub_token:
                 print(f"\n  /sub/{client.sub_token}  (домен панели не задан)")
             else:
