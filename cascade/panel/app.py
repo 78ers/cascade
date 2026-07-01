@@ -176,15 +176,15 @@ def _clients_view(c, relay_ip: str) -> list:
     result = []
     for cl in (c.clients if c else []):
         profiles = _client_profiles(c, cl, relay_ip)
-        sub_url = ""
         sub_qr = ""
         bootstrap_qr = ""
+        sub_url = ""
         if cl.sub_token and c.domain:
             sub_url = f"https://{c.domain}/sub/{cl.sub_token}"
             sub_qr = _qr_svg(sub_url)
-            cascade_url = next((p["url"] for p in profiles if p["mode"] == "cascade"), "")
-            if cascade_url:
-                bootstrap_qr = _qr_svg(f"{cascade_url}\n{sub_url}")
+            cascade_profiles = [p for p in profiles if p["mode"] == "cascade"]
+            if cascade_profiles:
+                bootstrap_qr = _qr_svg(f"{cascade_profiles[0]['url']}\n{sub_url}")
         result.append({"c": cl, "profiles": profiles,
                         "sub_token": cl.sub_token,
                         "sub_url": sub_url, "sub_qr": sub_qr,
@@ -394,10 +394,13 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             # без IP моста cascade-ссылки были бы битыми (host пустой) — не отдаём
             return render_template("client_share.html", profiles=[], name=client.name,
                                    error="Сервер временно недоступен, попробуйте позже")
-        sub_url = f"https://{c.domain}/sub/{client.sub_token}" if client.sub_token and c.domain else ""
-        sub_qr = _qr_svg(sub_url) if sub_url else ""
         profiles = []
         for ex in c.exit_servers:
+            sub_url = ""
+            sub_qr = ""
+            if client.sub_token and c.domain:
+                sub_url = f"https://{c.domain}/sub/{client.sub_token}?exit={ex.id}"
+                sub_qr = _qr_svg(sub_url)
             for direct in (False, True):
                 url = client_profile_url(client.uuid, ex, relay_ip, client.name,
                                          direct=direct, fingerprint=c.fingerprint)

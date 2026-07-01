@@ -19,43 +19,48 @@
   <div class="share-error">Нет доступных профилей</div>
   {% else %}
 
-  {% set p = profiles[0] %}
-  {% if p.sub_url %}
-  <div class="share-card">
-    <div class="share-card-head">Подписка (только HTTPS)</div>
-    <div class="share-body">
-      {% if p.sub_qr %}
-      <div class="share-qr">{{ p.sub_qr | safe }}</div>
-      {% endif %}
-      <div style="flex:1">
-        <div class="share-link">{{ p.sub_url }}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
-          {% if p.sub_qr %}<button class="btn btn-glass" data-download-qr="sub">⬇ Скачать</button>{% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
+  {% set exits_done = [] %}
   {% for p in profiles %}
-  {% if p.mode == 'cascade' and p.sub_url %}
-  <div class="share-card">
-    <div class="share-card-head">VLESS + подписка (для первого подключения)</div>
-    <div class="share-body">
-      {% if p.bootstrap_qr %}
-      <div class="share-qr">{{ p.bootstrap_qr | safe }}</div>
-      {% endif %}
-      <div style="flex:1">
-        <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
-          {% if p.bootstrap_qr %}<button class="btn btn-glass" data-download-qr="bootstrap">⬇ Скачать</button>{% endif %}
+    {% if p.exit not in exits_done %}
+      {% if exits_done.append(p.exit) %}{% endif %}
+
+      {% if p.sub_url %}
+      <div class="share-card">
+        <div class="share-card-head">{{ p.exit }} — Подписка</div>
+        <div class="share-body">
+          {% if p.sub_qr %}
+          <div class="share-qr">{{ p.sub_qr | safe }}</div>
+          {% endif %}
+          <div style="flex:1">
+            <div class="share-link">{{ p.sub_url }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-glass copy-btn" data-copy="{{ p.sub_url }}">📋 Копировать</button>
+              {% if p.sub_qr %}<button class="btn btn-glass" data-download-qr="sub-{{ p.exit|replace(' ','-') }}">⬇ Скачать</button>{% endif %}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-  {% endif %}
+      {% endif %}
+
+      {% if p.mode == 'cascade' and p.sub_url %}
+      <div class="share-card">
+        <div class="share-card-head">{{ p.exit }} — VLESS + подписка</div>
+        <div class="share-body">
+          {% if p.bootstrap_qr %}
+          <div class="share-qr">{{ p.bootstrap_qr | safe }}</div>
+          {% endif %}
+          <div style="flex:1">
+            <div style="color:rgba(235,235,245,.5);font-size:12px;margin-bottom:8px">Сканируй в Happ → подключись по VLESS → подписка обновится через туннель</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}&#10;{{ p.sub_url }}">📋 Копировать</button>
+              {% if p.bootstrap_qr %}<button class="btn btn-glass" data-download-qr="bootstrap-{{ p.exit|replace(' ','-') }}">⬇ Скачать</button>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    {% endif %}
   {% endfor %}
 
   {% for p in profiles %}
@@ -69,7 +74,7 @@
         <div class="share-link">{{ p.url }}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-glass copy-btn" data-copy="{{ p.url }}">📋 Копировать</button>
-          {% if p.qr %}<button class="btn btn-glass" data-download-qr="vless">⬇ Скачать</button>{% endif %}
+          {% if p.qr %}<button class="btn btn-glass" data-download-qr="vless-{{ p.exit|replace(' ','-') }}-{{ p.mode }}">⬇ Скачать</button>{% endif %}
         </div>
       </div>
     </div>
