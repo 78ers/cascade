@@ -176,19 +176,21 @@ def _clients_view(c, relay_ip: str) -> list:
     result = []
     for cl in (c.clients if c else []):
         profiles = _client_profiles(c, cl, relay_ip)
-        sub_qr = ""
-        bootstrap_qr = ""
-        sub_url = ""
+        sub_qrs = []
+        bootstrap_qrs = []
         if cl.sub_token and c.domain:
-            sub_url = f"https://{c.domain}/sub/{cl.sub_token}"
-            sub_qr = _qr_svg(sub_url)
-            cascade_profiles = [p for p in profiles if p["mode"] == "cascade"]
-            if cascade_profiles:
-                bootstrap_qr = _qr_svg(f"{cascade_profiles[0]['url']}\n{sub_url}")
+            for ex in c.exit_servers:
+                sub_url = f"https://{c.domain}/sub/{cl.sub_token}?exit={ex.id}"
+                sub_qr = _qr_svg(sub_url)
+                cascade_url = next((p["url"] for p in profiles
+                                    if p["mode"] == "cascade" and p["eid"] == ex.id), "")
+                bootstrap_qr = _qr_svg(f"{cascade_url}\n{sub_url}") if cascade_url else ""
+                sub_qrs.append({"exit": ex.location, "url": sub_url, "qr": sub_qr})
+                bootstrap_qrs.append({"exit": ex.location, "url": cascade_url,
+                                      "sub_url": sub_url, "qr": bootstrap_qr})
         result.append({"c": cl, "profiles": profiles,
                         "sub_token": cl.sub_token,
-                        "sub_url": sub_url, "sub_qr": sub_qr,
-                        "bootstrap_qr": bootstrap_qr})
+                        "sub_qrs": sub_qrs, "bootstrap_qrs": bootstrap_qrs})
     return result
 
 

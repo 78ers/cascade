@@ -98,24 +98,28 @@
                   data-copy="{{ "https://" ~ request.host }}/sub/{{ it.sub_token }}"
                   title="{{ "https://" ~ request.host }}/sub/{{ it.sub_token }}"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M7 1v12M1 7h12"/><circle cx="7" cy="7" r="6"/></svg> Sub</button>
           {% endif %}
-          {% if it.sub_token and it.sub_qr %}
+          {% if it.sub_token and it.sub_qrs %}
           <details class="profiles">
             <summary class="btn btn-glass btn-sm">QR ▾</summary>
             <div class="profiles-body">
+              {% for sq in it.sub_qrs %}
               <div class="profile-row">
-                {% if it.sub_qr %}<div class="qr-box">{{ it.sub_qr | safe }}</div>{% endif %}
+                {% if sq.qr %}<div class="qr-box">{{ sq.qr | safe }}</div>{% endif %}
                 <div style="flex:1;min-width:0">
-                  <div class="profile-tag">Только подписка</div>
+                  <div class="profile-tag">{{ sq.exit }} · Только подписка</div>
                 </div>
               </div>
-              {% if it.bootstrap_qr %}
+              {% endfor %}
+              {% for bq in it.bootstrap_qrs %}
+              {% if bq.qr %}
               <div class="profile-row">
-                {% if it.bootstrap_qr %}<div class="qr-box">{{ it.bootstrap_qr | safe }}</div>{% endif %}
+                <div class="qr-box">{{ bq.qr | safe }}</div>
                 <div style="flex:1;min-width:0">
-                  <div class="profile-tag">VLESS + подписка</div>
+                  <div class="profile-tag">{{ bq.exit }} · VLESS + подписка</div>
                 </div>
               </div>
               {% endif %}
+              {% endfor %}
             </div>
           </details>
           {% endif %}
