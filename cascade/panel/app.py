@@ -1250,16 +1250,17 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
                                    remarks=f"{ex.location}-{client.name}",
                                    fingerprint=c.fingerprint)
 
-        # HWID: читаем из заголовка Happ X-Hwid + модель устройства
+        # HWID + счётчик обновлений подписки
         from cascade.config import record_hwid, save_config
+        client.sub_update_count += 1
         hwid = request.headers.get("X-Hwid")
-        if hwid and client:
+        if hwid:
             device = request.headers.get("X-Device-Model", "")
             os_name = request.headers.get("X-Device-Os", "")
             app_ver = request.headers.get("X-App-Version", "")
             ua = f"{device} {os_name} {app_ver}".strip()
             record_hwid(client, hwid, ua)
-            save_config(c, config_path)
+        save_config(c, config_path)
 
         from flask import Response
         return Response(
@@ -1288,7 +1289,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
     @app.get("/boss/hwid")
     @login_required
     def hwid_page():
-        """Страница HWID: таблица клиентов с количеством устройств."""
+        """Страница HWID: таблица клиентов с количеством устройств и обновлений."""
         c = cfg()
         if not c:
             return redirect(url_for("settings"))
@@ -1303,6 +1304,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             rows.append({
                 "client": cl,
                 "count": len(hwids),
+                "updates": cl.sub_update_count if hasattr(cl, 'sub_update_count') else 0,
                 "first_seen": first_seen,
                 "last_seen": last_seen,
                 "hwids": hwids,

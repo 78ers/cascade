@@ -39,6 +39,7 @@ class Client:
     created: str = ""   # ISO-дата, напр. "2026-05-29"
     sub_token: str = ""  # постоянный токен для подписки Happ (/sub/<token>)
     hwid_list: list = field(default_factory=list)  # [{hwid, first_seen, last_seen, user_agent}]
+    sub_update_count: int = 0  # количество обновлений подписки (запросов /sub/<token>)
 
 
 @dataclass

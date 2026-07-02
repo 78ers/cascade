@@ -12,6 +12,7 @@
     <tr>
       <th>Клиент</th>
       <th>Устройств</th>
+      <th>Обновлений</th>
       <th>Первое появление</th>
       <th>Последнее</th>
     </tr>
@@ -27,6 +28,18 @@
           <span class="badge" style="background:rgba(255,69,58,.2);color:#ff453a">{{ row.count }}!</span>
         {% endif %}
       </td>
+      <td>
+        {% set expected = row.count * 8 if row.count > 0 else 0 %}
+        {% if row.updates == 0 %}
+          <span style="color:rgba(235,235,245,.3)">—</span>
+        {% elif row.count > 0 and row.updates > expected * 2 %}
+          <span class="badge" style="background:rgba(255,69,58,.2);color:#ff453a">{{ row.updates }} (лив!)</span>
+        {% elif row.count == 0 and row.updates > 4 %}
+          <span class="badge" style="background:rgba(255,149,0,.2);color:#ff9500">{{ row.updates }}</span>
+        {% else %}
+          <span>{{ row.updates }}</span>
+        {% endif %}
+      </td>
       <td>{{ row.first_seen[:10] if row.first_seen else '—' }}</td>
       <td>{{ row.last_seen[:10] if row.last_seen else '—' }}</td>
     </tr>
@@ -35,14 +48,18 @@
     <tr style="font-size:12px;color:rgba(235,235,245,.5)">
       <td style="padding-left:24px">{{ h.hwid[:16] }}…</td>
       <td>{{ h.user_agent[:30] if h.user_agent else '' }}</td>
+      <td></td>
       <td>{{ h.first_seen[:10] }}</td>
       <td>{{ h.last_seen[:10] }}</td>
     </tr>
     {% endfor %}
     {% endif %}
     {% else %}
-    <tr><td colspan="4" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
+    <tr><td colspan="5" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
     {% endfor %}
   </table>
+  <div style="padding:8px 12px;font-size:11px;color:rgba(235,235,245,.4)">
+    Норма: ~8 обновлений/день на 1 устройство (раз в 3ч). Если обновлений больше — подписку используют несколько устройств.
+  </div>
 </div>
 {% endblock %}
