@@ -1250,23 +1250,15 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
                                    remarks=f"{ex.location}-{client.name}",
                                    fingerprint=c.fingerprint)
 
-        # HWID: логируем все headers для определения имени заголовка (временно)
-        import logging
-        _sub_log = logging.getLogger('cascade.sub_headers')
-        if not _sub_log.handlers:
-            _sub_log.setLevel(logging.DEBUG)
-            _fh = logging.FileHandler('/tmp/sub_headers.log')
-            _sub_log.addHandler(_fh)
-        for k, v in request.headers:
-            _sub_log.info(f"{token} | {k}: {v}")
-
-        # Читаем HWID из заголовка Happ (имя заголовка определится из логов)
+        # HWID: читаем из заголовка Happ X-Hwid + модель устройства
         from cascade.config import record_hwid, save_config
-        hwid = (request.headers.get("Profile-Update-Hwid")
-                or request.headers.get("X-Hwid")
-                or request.headers.get("Happ-Hwid"))
+        hwid = request.headers.get("X-Hwid")
         if hwid and client:
-            record_hwid(client, hwid, request.headers.get("User-Agent", ""))
+            device = request.headers.get("X-Device-Model", "")
+            os_name = request.headers.get("X-Device-Os", "")
+            app_ver = request.headers.get("X-App-Version", "")
+            ua = f"{device} {os_name} {app_ver}".strip()
+            record_hwid(client, hwid, ua)
             save_config(c, config_path)
 
         from flask import Response
@@ -1276,7 +1268,6 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             headers={
                 "profile-title": client.name,
                 "profile-update-interval": "3",
-                "subscription-always-hwid-enable": "1",
             },
         )
 
