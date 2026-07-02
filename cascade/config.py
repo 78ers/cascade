@@ -38,6 +38,7 @@ class Client:
     enabled: bool = True
     created: str = ""   # ISO-дата, напр. "2026-05-29"
     sub_token: str = ""  # постоянный токен для подписки Happ (/sub/<token>)
+    hwid_list: list = field(default_factory=list)  # [{hwid, first_seen, last_seen, user_agent}]
 
 
 @dataclass
@@ -200,3 +201,21 @@ def save_config(cfg: "Config", path: Path = CONFIG_PATH) -> None:
     tmp.write_text(json.dumps(asdict(cfg), ensure_ascii=False, indent=2), encoding="utf-8")
     os.chmod(tmp, 0o600)
     os.replace(tmp, path)
+
+
+def record_hwid(client, hwid, user_agent=""):
+    """Записать/обновить HWID для клиента. Дубликаты обновляют last_seen."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    for entry in client.hwid_list:
+        if entry["hwid"] == hwid:
+            entry["last_seen"] = now
+            if user_agent:
+                entry["user_agent"] = user_agent
+            return
+    client.hwid_list.append({
+        "hwid": hwid,
+        "first_seen": now,
+        "last_seen": now,
+        "user_agent": user_agent,
+    })

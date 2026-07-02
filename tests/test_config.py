@@ -250,3 +250,52 @@ def test_mtproto_port_exits_roundtrip(tmp_path):
     p = tmp_path / "c.json"
     save_config(cfg, p)
     assert load_config(p).mtproto_port_exits == {"8500": "est"}
+
+
+def test_record_hwid_new():
+    from cascade.config import record_hwid
+    cl = Client(id="c1", name="test", uuid="u1")
+    record_hwid(cl, "abc123", "Happ/2.18 iOS")
+    assert len(cl.hwid_list) == 1
+    assert cl.hwid_list[0]["hwid"] == "abc123"
+    assert cl.hwid_list[0]["first_seen"] == cl.hwid_list[0]["last_seen"]
+    assert cl.hwid_list[0]["user_agent"] == "Happ/2.18 iOS"
+
+
+def test_record_hwid_duplicate_updates_last_seen():
+    from cascade.config import record_hwid
+    cl = Client(id="c1", name="test", uuid="u1")
+    record_hwid(cl, "abc123")
+    old_first = cl.hwid_list[0]["first_seen"]
+    record_hwid(cl, "abc123", "Happ/2.18 Android")
+    assert len(cl.hwid_list) == 1
+    assert cl.hwid_list[0]["first_seen"] == old_first
+    assert cl.hwid_list[0]["last_seen"] != old_first
+    assert cl.hwid_list[0]["user_agent"] == "Happ/2.18 Android"
+
+
+def test_record_hwid_multiple_devices():
+    from cascade.config import record_hwid
+    cl = Client(id="c1", name="test", uuid="u1")
+    record_hwid(cl, "aaa")
+    record_hwid(cl, "bbb")
+    assert len(cl.hwid_list) == 2
+
+
+def test_old_config_gets_hwid_list_default(tmp_path):
+    data = {"exit_servers": [], "clients": [{"id": "c1", "name": "x", "uuid": "u1"}]}
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    cfg = load_config(path)
+    assert cfg.clients[0].hwid_list == []
+
+
+def test_hwid_list_roundtrip(tmp_path):
+    from cascade.config import record_hwid
+    cl = Client(id="c1", name="test", uuid="u1")
+    record_hwid(cl, "abc123", "Happ iOS")
+    cfg = Config(clients=[cl])
+    path = tmp_path / "config.json"
+    save_config(cfg, path)
+    loaded = load_config(path)
+    assert loaded.clients[0].hwid_list[0]["hwid"] == "abc123"

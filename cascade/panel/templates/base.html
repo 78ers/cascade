@@ -19,6 +19,9 @@
     <a class="nav-item {% if request.endpoint in ['clients', 'mtproto'] %}active{% endif %}" href="{{ url_for('clients') }}">
       <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="6.5" r="3.5"/><path d="M2 18c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>Клиенты
     </a>
+    <a class="nav-item {% if request.endpoint == 'hwid_page' %}active{% endif %}" href="{{ url_for('hwid_page') }}">
+      <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="10" height="16" rx="2"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span>Устройства
+    </a>
     <a class="nav-item {% if request.endpoint == 'exits' %}active{% endif %}" href="{{ url_for('exits') }}">
       <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><path d="M10 2c-3 3-3 13 0 16M10 2c3 3 3 13 0 16M2 10h16"/></svg></span>Выходы
     </a>

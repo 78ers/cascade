@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Устройства (HWID){% endblock %}
+{% block status %}{{ rows | selectattr('count', 'gt', 0) | list | length }} активных{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    Устройства (HWID)
+    <span style="font-size:12px;color:rgba(235,235,245,.4)">Happ отправляет HWID при обновлении подписки</span>
+  </div>
+  <table class="tbl-clients">
+    <tr>
+      <th>Клиент</th>
+      <th>Устройств</th>
+      <th>Первое появление</th>
+      <th>Последнее</th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.client.name }}</td>
+      <td>
+        {% if row.count == 0 %}
+          <span class="badge badge-off">0</span>
+        {% elif row.count == 1 %}
+          <span class="badge">1</span>
+        {% else %}
+          <span class="badge" style="background:rgba(255,69,58,.2);color:#ff453a">{{ row.count }}!</span>
+        {% endif %}
+      </td>
+      <td>{{ row.first_seen[:10] if row.first_seen else '—' }}</td>
+      <td>{{ row.last_seen[:10] if row.last_seen else '—' }}</td>
+    </tr>
+    {% if row.hwids %}
+    {% for h in row.hwids %}
+    <tr style="font-size:12px;color:rgba(235,235,245,.5)">
+      <td style="padding-left:24px">{{ h.hwid[:16] }}…</td>
+      <td>{{ h.user_agent[:30] if h.user_agent else '' }}</td>
+      <td>{{ h.first_seen[:10] }}</td>
+      <td>{{ h.last_seen[:10] }}</td>
+    </tr>
+    {% endfor %}
+    {% endif %}
+    {% else %}
+    <tr><td colspan="4" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

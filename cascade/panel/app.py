@@ -1249,6 +1249,26 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         data = client_profile_json(client.uuid, ex, relay_ip,
                                    remarks=f"{ex.location}-{client.name}",
                                    fingerprint=c.fingerprint)
+
+        # HWID: логируем все headers для определения имени заголовка (временно)
+        import logging
+        _sub_log = logging.getLogger('cascade.sub_headers')
+        if not _sub_log.handlers:
+            _sub_log.setLevel(logging.DEBUG)
+            _fh = logging.FileHandler('/tmp/sub_headers.log')
+            _sub_log.addHandler(_fh)
+        for k, v in request.headers:
+            _sub_log.info(f"{token} | {k}: {v}")
+
+        # Читаем HWID из заголовка Happ (имя заголовка определится из логов)
+        from cascade.config import record_hwid, save_config
+        hwid = (request.headers.get("Profile-Update-Hwid")
+                or request.headers.get("X-Hwid")
+                or request.headers.get("Happ-Hwid"))
+        if hwid and client:
+            record_hwid(client, hwid, request.headers.get("User-Agent", ""))
+            save_config(c, config_path)
+
         from flask import Response
         return Response(
             data,
@@ -1256,6 +1276,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             headers={
                 "profile-title": client.name,
                 "profile-update-interval": "3",
+                "subscription-always-hwid-enable": "1",
             },
         )
 
@@ -1272,6 +1293,30 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             save_config(c, config_path)
             flash(f"Подписка для {client.name} создана")
         return redirect(url_for("clients"))
+
+    @app.get("/boss/hwid")
+    @login_required
+    def hwid_page():
+        """Страница HWID: таблица клиентов с количеством устройств."""
+        c = cfg()
+        if not c:
+            return redirect(url_for("settings"))
+        rows = []
+        for cl in c.clients:
+            hwids = cl.hwid_list if hasattr(cl, 'hwid_list') else []
+            first_seen = ""
+            last_seen = ""
+            if hwids:
+                first_seen = min(h["first_seen"] for h in hwids)
+                last_seen = max(h["last_seen"] for h in hwids)
+            rows.append({
+                "client": cl,
+                "count": len(hwids),
+                "first_seen": first_seen,
+                "last_seen": last_seen,
+                "hwids": hwids,
+            })
+        return render_template("hwid.html", rows=rows)
 
     @app.get("/qr/<token>/<eid>.png")
     def qr_png(token, eid):

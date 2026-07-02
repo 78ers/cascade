@@ -546,3 +546,24 @@ def test_sub_exit_param_overrides_primary(client_cfg, monkeypatch):
     assert _j.loads(r0.get_data())["outbounds"][0]["settings"]["vnext"][0]["port"] == 8444
     r1 = c.get("/sub/tok-x?exit=est")
     assert _j.loads(r1.get_data())["outbounds"][0]["settings"]["vnext"][0]["port"] == 8454
+
+
+def test_hwid_page_loads(client_cfg):
+    c, _ = client_cfg
+    _login(c)
+    resp = c.get("/boss/hwid")
+    assert resp.status_code == 200
+    assert "Устройства" in resp.get_data(as_text=True)
+
+
+def test_hwid_page_shows_clients(client_cfg):
+    c, cfg_path = client_cfg
+    _login(c)
+    from cascade.config import record_hwid
+    cfg = load_config(cfg_path)
+    record_hwid(cfg.clients[0], "abc123", "Happ iOS")
+    save_config(cfg, cfg_path)
+    resp = c.get("/boss/hwid")
+    text = resp.get_data(as_text=True)
+    assert "phone" in text
+    assert "abc123" in text
