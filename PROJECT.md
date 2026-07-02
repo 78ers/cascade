@@ -492,3 +492,37 @@ SSH-операции в `vpn_menu` (добавить клиента, удали�
 - **`geosite:tencent` убран** (был backstop). Замер после деплоя: **29→13МБ** → категория Tencent в распухшей geosite.dat стоила ~16МБ. Запас до лимита 50МБ ~37МБ. Урок: gео-категории в обновлённом Happ дороги — держать явные домены, backstop-категории не возвращать без замера.
 
 **Деплой.** На мосту `/opt/cascade`: `git pull && systemctl restart cascade-panel`. Живые клиенты на подписке `/sub` подтянут новый профиль автоматически (интервал 3ч) — переимпорт не нужен.
+
+---
+
+## 20. Изменения 2026-07-02 (HWID трекинг + детекция слива)
+
+**Тестов: 187/187.**
+
+**Контекст.** Задача: определить сколько клиентов реально пользуются подпиской и нет ли передачи конфига посторонним. Happ (iOS/Android/Desktop, org Happ-proxy на GitHub) отправляет HWID (Hardware ID) устройства в HTTP-заголовках при запросе подписки.
+
+**Реализовано:**
+- `Client.hwid_list: list` — список [{hwid, first_seen, last_seen, user_agent}] в config.json. Обратно совместимо (старые конфиги без hwid_list получают []).
+- `record_hwid(client, hwid, user_agent)` — запись/обновление HWID. Дубликаты обновляют last_seen.
+- `/sub/<token>` endpoint читает `X-Hwid` + `X-Device-Model`, `X-Device-Os`, `X-App-Version` из заголовков Happ.
+- `Client.sub_update_count: int` — счётчик обновлений подписки (каждый запрос /sub/<token>).
+- `/boss/hwid` — отдельная страница в панели: таблица клиентов × количество устройств × количество обновлений × первое/последнее появление. Красный индикатор если >1 устройства или аномально много обновлений.
+- Sidebar: пункт "Устройства" между "Клиенты" и "Выходы".
+
+**Happ HWID — детали:**
+- Заголовок: `X-Hwid` (подтверждено на Happ 4.12.0 iOS).
+- Доп. заголовки: `X-Device-Model`, `X-Device-Os`, `X-App-Version`, `X-Ver-Os`, `X-Device-Locale`.
+- HWID отключён по умолчанию в Happ → пользователь должен включить вручную (Настройки → подписка → HWID).
+- `subscription-always-hwid-enable: 1` (response header) — документирован Happ, но НЕ работает в 4.12.0 (протестировано). Кнопка HWID не включается принудительно.
+- Документация: https://docs.happ.info (GitBook, `?ask=<question>` для Q&A).
+- Happ-proxy GitHub: `github.com/Happ-proxy` (happ-ios, happ-android, happ-desktop, 3x-ui fork, Marzban fork).
+
+**Детекция слива (без HWID):**
+- Счётчик обновлений подписки: норма ~8/день на 1 устройство (раз в 3ч). Если больше — подписку шарят.
+- IP-трекинг бесполезен: CGNAT на мобильных операторах (тысячи пользователей на одном IP).
+- На странице `/boss/hwid`: красный "лив!" если обновлений >2x от ожидаемого для N устройств.
+
+**Коммиты:**
+- `609b99d` feat: HWID tracking for Happ clients
+- `d33297d` fix: use X-Hwid header, capture device model, remove temp logging
+- `11b36d6` feat: subscription update counter + leak detection

@@ -128,3 +128,12 @@ Reality `serverNames`, порт, `shortId`, `publicKey` — всё это леж
 - **WeChat дополнен** (сверка эталона `blackmatrix7/ios_rule_script` WeChat.yaml + Grok + Gemini): `weixinbridge.com`/`weixinsxy.com`/`wechatlegal.net`/`iot-tencent.com`/`wechatpay.cn`/`tencentmap.com` + точечные `full:apd-pcdnwxlogin.teg.tencent-cloud.net`/`full:slife.xy-asia.com`. Остальное у консультантов = поддомены qq.com/gtimg.com (уже покрыты корнями) — не дублировал.
 - **`geosite:tencent` УБРАН.** Память туннеля Happ выросла 14-16→29МБ — внешнее (обновился Happ → распухли встроенные geoip.dat/geosite.dat), не конфиг. Замер после деплоя: **29→13МБ** (категория Tencent стоила ~16МБ), запас до 50МБ ~37МБ. Урок: gео-категории в обновлённом Happ дороги — держать явные домены, backstop-категории не возвращать без замера. См. память `project_cascade_ios_memory_limit`.
 - **Только клиентский профиль** (`build_client_xray_config`) — сервер выхода/Xray НЕ трогали. Деплой: на мосту `/opt/cascade` → `git pull && systemctl restart cascade-panel`; живые клиенты на `/sub` подтянут авто (интервал 3ч), переимпорт не нужен.
+
+## Сессия 2026-07-02 (HWID трекинг + детекция слива)
+- Тесты **187/187**. Полная картина — PROJECT.md §20. Коммиты `609b99d`, `d33297d`, `11b36d6`.
+- **HWID трекинг:** Happ шлёт `X-Hwid` + `X-Device-Model`/`X-Device-Os`/`X-App-Version` в заголовках запроса `/sub/<token>`. Клиент должен вручную включить HWID в настройках Happ. `subscription-always-hwid-enable: 1` (response header) НЕ работает в Happ 4.12.0 — кнопка не включается принудительно.
+- **Ключевые файлы:** `config.py` (Client.hwid_list, sub_update_count, record_hwid), `panel/app.py` (sub_page, hwid_page), `templates/hwid.html`.
+- **Детекция слива:** счётчик обновлений подписки (`sub_update_count`). Норма ~8/день на 1 устройство. Красный "лив!" если >2x. IP-трекинг бесполезен (CGNAT).
+- **Happ-proxy org:** `github.com/Happ-proxy` — happ-ios, happ-android, happ-desktop, 3x-ui fork, Marzban fork. Код закрытый, репы = README + releases.
+- **Документация Happ:** `docs.happ.info` (GitBook), API: `?ask=<question>` на любой странице docs.
+- **Деплой:** push → `git pull && systemctl restart cascade-panel` на мосту (<МОСТ_IP>). Пользователь выполняет вручную.
