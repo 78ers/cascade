@@ -136,13 +136,13 @@ Reality `serverNames`, порт, `shortId`, `publicKey` — всё это леж
 - **Детекция слива:** счётчик обновлений подписки (`sub_update_count`). Норма ~8/день на 1 устройство. Красный "лив!" если >2x. IP-трекинг бесполезен (CGNAT).
 - **Happ-proxy org:** `github.com/Happ-proxy` — happ-ios, happ-android, happ-desktop, 3x-ui fork, Marzban fork. Код закрытый, репы = README + releases.
 - **Документация Happ:** `docs.happ.info` (GitBook), API: `?ask=<question>` на любой странице docs.
-- **Деплой:** push → `git pull && systemctl restart cascade-panel` на мосту (<МОСТ_IP>). Пользователь выполняет вручную.
+- **Деплой:** push → `git pull && systemctl restart cascade-panel` на мосту. Пользователь выполняет вручную.
 
 ## Сессия 2026-08-07 (установка Xray: резерв через wget)
 - Тесты **191/191**. Коммит `fdaedb7`. Полная картина — PROJECT.md §21.
 - **`_install_xray` больше не судит по коду возврата `curl | bash`.** Без `pipefail` код брался от `bash`, который на пустом stdin (упавший curl) отдаёт 0 → «установка удалась», а деплой падал через два шага на `xray x25519` (127). Теперь решение по факту `command -v xray`, `pipefail` — ради настоящего кода и stderr в тексте ошибки.
 - **Резерв:** бинаря нет → `wget` качает архив Xray-core + `install-release.sh`, запуск с **`--local`**. Скрипт XTLS внутри жёстко на curl (переопределяет его функцией, строка 100) и wget не умеет, но с локальным архивом в сеть не ходит; `geoip.dat`/`geosite.dat` — внутри архива.
 - **Уже стоящий Xray + сбой обновления НЕ рвёт деплой** (важно при смене IP живого выхода). Резерв запускается только когда бинаря нет — тест `test_install_xray_no_fallback_when_binary_present`.
-- **Зачем:** на выходе `usa_tim` (<ВЫХОД_IP>) `curl` не качает с GitHub (`curl: (60) SSL: no alternative certificate subject name matches` на `raw.githubusercontent.com`/`api.github.com`/`release-assets.githubusercontent.com`), а `wget` тем же адресом качает. Причина не установлена — 11 версий опровергнуто (IPv6/DNS/SNI/узлы/CA/цепочка/ALPN/TLS-версия/подмена бинаря); `openssl s_client` на той же машине сертификат валидирует. **Не диагностировать заново — сразу wget.**
+- **Зачем:** на одном из выходов `curl` не качает с GitHub (`curl: (60) SSL: no alternative certificate subject name matches` на `raw.githubusercontent.com`/`api.github.com`/`release-assets.githubusercontent.com`), а `wget` тем же адресом качает. Причина не установлена — 11 версий опровергнуто (IPv6/DNS/SNI/узлы/CA/цепочка/ALPN/TLS-версия/подмена бинаря); `openssl s_client` на той же машине сертификат валидирует. **Не диагностировать заново — сразу wget.**
 - **Резерв `curl → wget` во ВСЕХ загрузках** (коммит `297e353`, тесты 192/192): `sni.build_scan_cmd` (RealiTLScanner — панель «Найти кандидатов» падала так же), `mtproto.deploy_mtproto` (GitHub API + архив mtg), `_install_telemt_local`/`deploy_telemt_remote`, `hysteria` (+`set -o pipefail`). Паттерн: `curl -fsSL URL -o FILE || wget -qO FILE URL`; для пайпов `{ curl -fsSL "$U" || wget -qO- "$U"; } | tar xzf -`. **Новые загрузки писать сразу с резервом.**
 - **Хвост:** `install.sh:8` `NFQWS_BIN` ведёт в несуществующую `assets/` нашего репо (бинарь nfqws не положен).
