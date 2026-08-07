@@ -13,8 +13,9 @@ def test_gen_secret_format():
 
 
 def test_domain_from_known_secret():
-    s = "ee00112233445566778899aabbccddeeff6578616d706c652e7275"
-    assert domain_from_secret(s) == "lenta.ru"
+    # синтетическая фикстура: ee + 32 hex + hex("example.ru")
+    s = "ee00112233445566778899aabbccddeeff" + "6578616d706c652e7275"
+    assert domain_from_secret(s) == "example.ru"
 
 
 def test_valid_secret_rejects_bad():
