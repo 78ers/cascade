@@ -58,11 +58,14 @@ def deploy_mtproto(conn, port: int, domain: str = "google.com", secret: str = ""
     install_script = (
         "set -e; cd /tmp; "
         "ARCH=$(uname -m); case $ARCH in x86_64) A=amd64;; aarch64) A=arm64;; esac; "
-        "TAG=$(curl -fsSL https://api.github.com/repos/9seconds/mtg/releases/latest "
+        # wget — резерв: на части серверов curl не качает с GitHub (см. _install_xray)
+        "TAG=$({ curl -fsSL https://api.github.com/repos/9seconds/mtg/releases/latest "
+        "|| wget -qO- https://api.github.com/repos/9seconds/mtg/releases/latest; } "
         "| grep -oP '\"tag_name\": \"\\K[^\"]+'); "
         "[ -n \"$TAG\" ] || { echo 'не удалось узнать версию mtg (GitHub API)'; exit 1; }; "
-        "curl -fsSL \"https://github.com/9seconds/mtg/releases/download/${TAG}/"
-        "mtg-${TAG#v}-linux-${A}.tar.gz\" -o mtg.tgz; "
+        "U=\"https://github.com/9seconds/mtg/releases/download/${TAG}/"
+        "mtg-${TAG#v}-linux-${A}.tar.gz\"; "
+        "curl -fsSL \"$U\" -o mtg.tgz || wget -qO mtg.tgz \"$U\"; "
         "tar xzf mtg.tgz; "
         "find . -name mtg -type f -executable -exec install -m755 {} /usr/local/bin/mtg \\;"
     )
@@ -183,7 +186,8 @@ def _install_telemt_local() -> None:
         "LIBC=$(ldd --version 2>&1 | grep -iq musl && echo musl || echo gnu); "
         'URL="https://github.com/telemt/telemt/releases/latest/download/'
         'telemt-${ARCH}-linux-${LIBC}.tar.gz"; '
-        "curl -fsSL \"$URL\" | tar xzf -; "
+        # wget — резерв: на части серверов curl не качает с GitHub (см. _install_xray)
+        "{ curl -fsSL \"$URL\" || wget -qO- \"$URL\"; } | tar xzf -; "
         "install -m755 telemt /usr/local/bin/telemt"
     )
     r = subprocess.run(
@@ -274,7 +278,8 @@ def deploy_telemt_remote(conn, mask_domain: str, users: dict) -> None:
         "LIBC=$(ldd --version 2>&1 | grep -iq musl && echo musl || echo gnu); "
         'URL="https://github.com/telemt/telemt/releases/latest/download/'
         'telemt-${ARCH}-linux-${LIBC}.tar.gz"; '
-        "curl -fsSL \"$URL\" | tar xzf -; "
+        # wget — резерв: на части серверов curl не качает с GitHub (см. _install_xray)
+        "{ curl -fsSL \"$URL\" || wget -qO- \"$URL\"; } | tar xzf -; "
         "install -m755 telemt /usr/local/bin/telemt"
     )
     r = conn.run(f"bash -c {shlex.quote(install_script)}", timeout=120)

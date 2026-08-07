@@ -135,6 +135,12 @@ def test_build_scan_cmd_quotes():
     assert "-addr" in cmd and "-thread" in cmd
 
 
+def test_build_scan_cmd_falls_back_to_wget():
+    """На части выходов curl не качает с GitHub — сканер должен браться через wget."""
+    cmd = sni.build_scan_cmd("1.2.3.4")
+    assert "curl -fsSL" in cmd and "|| wget -qO" in cmd
+
+
 def test_parse_scan_csv():
     csv = (
         "IP,ORIGIN,CERT_DOMAIN,CERT_ISSUER,GEO_CODE\n"

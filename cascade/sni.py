@@ -73,8 +73,11 @@ def build_scan_cmd(ip: str, threads: int = 16, timeout_s: int = 3) -> str:
     fname = shlex.quote("/tmp/realitls_" + re.sub(r"[^0-9a-zA-Z]", "_", ip) + ".csv")
     # /24 CIDR — конечное сканирование; одиночный IP → infinite mode (никогда не завершается)
     cidr = shlex.quote(ip + "/24") if "/" not in ip else safe_ip
+    # wget — резерв: на части выходов curl не может скачать с GitHub
+    # (см. _install_xray в vpn.py), а wget тем же адресом качает нормально.
     install = (f"test -x {_SCANNER_BIN} || "
-               f"(curl -fsSL {url} -o {_SCANNER_BIN} && chmod +x {_SCANNER_BIN})")
+               f"((curl -fsSL {url} -o {_SCANNER_BIN} || wget -qO {_SCANNER_BIN} {url})"
+               f" && chmod +x {_SCANNER_BIN})")
     scan = (f"{_SCANNER_BIN} -addr {cidr} "
             f"-thread {threads} -timeout {timeout_s} -out {fname} 2>/dev/null")
     return f"{install}; {scan}; cat {fname} 2>/dev/null"

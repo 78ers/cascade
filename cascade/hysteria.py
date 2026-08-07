@@ -111,7 +111,13 @@ def deploy_hysteria_remote(conn, port: int, mask_domain: str,
     conn.run(f"mkdir -p {shlex.quote(HYST_CFG_DIR)}", timeout=10)
 
     # 1) бинарь
-    r = conn.run("bash -c 'curl -fsSL https://get.hy2.sh/ | bash'", timeout=120)
+    # wget — резерв: на части серверов curl не качает (см. _install_xray в vpn.py);
+    # pipefail — иначе код возврата берётся от bash, который на пустом stdin отдаёт 0
+    r = conn.run(
+        "bash -c 'set -o pipefail; { curl -fsSL https://get.hy2.sh/ "
+        "|| wget -qO- https://get.hy2.sh/; } | bash'",
+        timeout=120,
+    )
     if r.returncode != 0:
         raise RuntimeError(f"Установка hysteria не удалась:\n{r.stderr or r.stdout}")
     conn.run(f"test -x {HYST_BINARY} || install -m755 "
