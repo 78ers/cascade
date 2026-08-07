@@ -544,4 +544,12 @@ SSH-операции в `vpn_menu` (добавить клиента, удали�
 
 **Зачем понадобился резерв.** Новый выход `usa_tim` (relay 8474): `curl` на нём не может скачать с GitHub — `raw.githubusercontent.com`, `api.github.com`, `release-assets.githubusercontent.com` дают `curl: (60) SSL: no alternative certificate subject name matches`, при этом `github.com` отвечает, а `wget` теми же адресами качает нормально. **Причина не установлена**: проверены и опровергнуты фактами IPv6, DNS, потеря SNI, разные anycast-узлы, CA-хранилище, полнота цепочки, ALPN, версия TLS, подмена бинаря curl; `openssl s_client` на той же машине сертификат получает и валидирует (`Verify return code: 0`, `-verify_hostname` ok). При следующем таком сбое — сразу пробовать `wget`, не повторять диагностику.
 
-**Открытые хвосты.** Тот же паттерн `curl | bash` без проверки результата остался в `cascade/hysteria.py:114` (модуль припаркован). В `install.sh:8` `NFQWS_BIN` ссылается на `assets/nfqws-linux-amd64` в нашем репозитории — папки `assets/` не существует, бинарь не положен, ссылка мёртвая.
+**Резерв раскатан на все загрузки из сети** (коммит `297e353`, тесты 192/192). Следом за установкой Xray на том же сервере отвалился SNI-скан в панели («Найти кандидатов» → та же ошибка 60 на `release-assets.githubusercontent.com`), поэтому приём применён везде, где что-то скачивается:
+- `sni.build_scan_cmd` — RealiTLScanner;
+- `mtproto.deploy_mtproto` — версия mtg через GitHub API и архив релиза;
+- `mtproto._install_telemt_local` / `deploy_telemt_remote` — архив telemt;
+- `hysteria` — `get.hy2.sh`, плюс добавлен `set -o pipefail` (код возврата брался от `bash` и скрывал ошибку — тот же дефект, что был в `_install_xray`).
+
+Паттерн: `curl -fsSL URL -o FILE || wget -qO FILE URL`; для пайпов — `{ curl -fsSL "$U" || wget -qO- "$U"; } | tar xzf -`. Проверено на живом: после `git pull` + рестарта панели SNI-скан на `usa_tim` отработал.
+
+**Открытый хвост.** В `install.sh:8` `NFQWS_BIN` ссылается на `assets/nfqws-linux-amd64` в нашем репозитории — папки `assets/` не существует, бинарь не положен, ссылка мёртвая: установка молча уходит в сборку nfqws из исходников.
