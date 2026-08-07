@@ -526,3 +526,22 @@ SSH-операции в `vpn_menu` (добавить клиента, удали�
 - `609b99d` feat: HWID tracking for Happ clients
 - `d33297d` fix: use X-Hwid header, capture device model, remove temp logging
 - `11b36d6` feat: subscription update counter + leak detection
+
+---
+
+## 21. Изменения 2026-08-07 (установка Xray: резерв через wget)
+
+**Тестов: 191/191.** Коммит: `fdaedb7`. Правка только в `_install_xray` (`cascade/vpn.py`) — общая для CLI, мастера и панели, все они идут через `deploy_vpn`.
+
+**Симптом.** Добавление выхода падало на `[ERROR] Генерация Reality-ключей — ошибка (код 127): bash: line 1: xray: command not found`, при этом шаг «Установка Xray» рапортовал успех.
+
+**Дефект (был с первого коммита, не регрессия).** `_install_xray` запускал `curl -fsSL <install-release.sh> | bash` и проверял код возврата пайпа, то есть код `bash`. При упавшем curl `bash` читает пустой stdin и выходит с нулём → установка «удавалась», а деплой падал через две операции с невнятной ошибкой.
+
+**Что сделано.**
+- Решение принимается по факту наличия бинаря (`command -v xray`), а не по коду возврата. `set -o pipefail` — чтобы в тексте ошибки был настоящий код и stderr curl.
+- **Резервный путь:** если бинаря нет → `wget` качает архив Xray-core (`releases/latest/download/Xray-linux-<arch>.zip`) и `install-release.sh`, установка идёт с флагом **`--local`**. Причина такой схемы: скрипт XTLS внутри жёстко завязан на `curl` (переопределяет его функцией на строке 100) и `wget` не поддерживает, но с локальным архивом в сеть не ходит вообще; `geoip.dat`/`geosite.dat` лежат в самом архиве и отдельно качаются только по явному флагу.
+- **Живые выходы не затронуты:** резерв запускается только когда бинаря нет; сбой обновления при уже установленном Xray деплой не рвёт (важно при смене IP живого выхода). Тест `test_install_xray_no_fallback_when_binary_present`.
+
+**Зачем понадобился резерв.** Новый выход `usa_tim` (relay 8474): `curl` на нём не может скачать с GitHub — `raw.githubusercontent.com`, `api.github.com`, `release-assets.githubusercontent.com` дают `curl: (60) SSL: no alternative certificate subject name matches`, при этом `github.com` отвечает, а `wget` теми же адресами качает нормально. **Причина не установлена**: проверены и опровергнуты фактами IPv6, DNS, потеря SNI, разные anycast-узлы, CA-хранилище, полнота цепочки, ALPN, версия TLS, подмена бинаря curl; `openssl s_client` на той же машине сертификат получает и валидирует (`Verify return code: 0`, `-verify_hostname` ok). При следующем таком сбое — сразу пробовать `wget`, не повторять диагностику.
+
+**Открытые хвосты.** Тот же паттерн `curl | bash` без проверки результата остался в `cascade/hysteria.py:114` (модуль припаркован). В `install.sh:8` `NFQWS_BIN` ссылается на `assets/nfqws-linux-amd64` в нашем репозитории — папки `assets/` не существует, бинарь не положен, ссылка мёртвая.
