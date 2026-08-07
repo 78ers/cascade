@@ -15,7 +15,24 @@ from cascade.xray_config import (
 )
 
 XRAY_INSTALL = "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+XRAY_RELEASE = "https://github.com/XTLS/Xray-core/releases/latest/download"
 REMOTE_CONFIG = "/usr/local/etc/xray/config.json"
+
+# Резерв, когда curl на выходе не может скачать с GitHub (бывает: curl падает на
+# проверке сертификата githubusercontent, а wget тем же адресом качает нормально).
+# install-release.sh внутри жёстко на curl, поэтому запускаем его с --local: с
+# локальным архивом он в сеть не ходит. geoip/geosite лежат в самом архиве.
+_FALLBACK_INSTALL = f"""set -e
+case "$(uname -m)" in
+  x86_64|amd64) A=64 ;;
+  aarch64|arm64) A=arm64-v8a ;;
+  armv7l) A=arm32-v7a ;;
+  *) echo "неизвестная архитектура: $(uname -m)"; exit 1 ;;
+esac
+wget -q -O /tmp/xray-local.zip "{XRAY_RELEASE}/Xray-linux-$A.zip"
+wget -q -O /tmp/xray-install.sh "{XRAY_INSTALL}"
+bash /tmp/xray-install.sh --local /tmp/xray-local.zip
+rm -f /tmp/xray-local.zip /tmp/xray-install.sh"""
 
 
 def _run_checked(conn: ServerConnection, cmd: str, desc: str, timeout: int = 30) -> str:
@@ -30,10 +47,19 @@ def _run_checked(conn: ServerConnection, cmd: str, desc: str, timeout: int = 30)
 
 def _install_xray(conn: ServerConnection) -> None:
     info("Установка Xray на сервере выхода (~2 мин)...")
-    r = conn.run(f"bash -c {shlex.quote(f'curl -fsSL {XRAY_INSTALL} | bash')}", timeout=180)
-    if r.returncode != 0:
-        detail = (r.stderr or r.stdout or "(нет вывода)").strip()
-        raise RuntimeError(f"Установка Xray не удалась (код {r.returncode}):\n{detail}")
+    script = f"set -o pipefail; curl -fsSL {XRAY_INSTALL} | bash"
+    r = conn.run(f"bash -c {shlex.quote(script)}", timeout=180)
+    # Судим по факту наличия бинаря, а не по коду возврата: без pipefail код брался
+    # от bash, который на пустом stdin (упавший curl) отдаёт 0 — установка «удавалась»,
+    # а падало через два шага на `xray x25519` (127). pipefail нужен, чтобы в тексте
+    # ошибки был настоящий код и stderr curl. Уже стоящий Xray + сбой обновления —
+    # не повод рвать деплой (смена IP живого выхода).
+    if conn.run("command -v xray", timeout=15).returncode != 0:
+        warn("Штатная установка не удалась — резервный путь через wget")
+        r = conn.run(f"bash -c {shlex.quote(_FALLBACK_INSTALL)}", timeout=300)
+        if conn.run("command -v xray", timeout=15).returncode != 0:
+            detail = (r.stderr or r.stdout or "(нет вывода)").strip()
+            raise RuntimeError(f"Xray не установился (код {r.returncode}):\n{detail}")
     # убрать User=nobody — systemd считает его небезопасным и спамит в логах
     conn.run(
         "sed -i '/^User=nobody/d' /etc/systemd/system/xray.service"
