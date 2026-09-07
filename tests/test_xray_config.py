@@ -178,6 +178,28 @@ def test_build_client_config_dns_split():
     assert any(isinstance(s, str) and s.startswith("https://") for s in servers)
 
 
+def test_build_client_config_doh_by_ip_no_bootstrap():
+    """DoH задан IP: домен резолвить нечем, системный DNS провайдера не участвует."""
+    cfg = build_client_xray_config(
+        uuid="U", public_key="P", short_id="S", host="h", sni="s", vpn_port=8444,
+    )
+    servers = json.loads(cfg)["dns"]["servers"]
+    doh = [s for s in servers if isinstance(s, str) and s.startswith("https://")]
+    assert doh == ["https://8.8.8.8/dns-query"]
+
+
+def test_build_client_config_dns_failopen_fallback():
+    """Безфильтровый Яндекс — последний: резолв РФ-сайтов выживает при мёртвом каскаде."""
+    cfg = build_client_xray_config(
+        uuid="U", public_key="P", short_id="S", host="h", sni="s", vpn_port=8444,
+    )
+    servers = json.loads(cfg)["dns"]["servers"]
+    assert servers[-1] == "77.88.8.8"
+    # порядок безфильтровых серверов: сперва DoH, резерв только после его провала
+    plain = [s for s in servers if isinstance(s, str)]
+    assert plain == ["https://8.8.8.8/dns-query", "77.88.8.8"]
+
+
 def test_build_client_config_inbounds_local():
     cfg = build_client_xray_config(
         uuid="U", public_key="P", short_id="S", host="h", sni="s", vpn_port=8444,
