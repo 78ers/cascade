@@ -30,6 +30,12 @@ def caddyfile(domain: str, port: int, caddy_bind_port: int = 443) -> str:
     host = f"{domain}:{caddy_bind_port}" if caddy_bind_port != 443 else domain
     https_block = (
         f"{host} {{\n"
+        # TLS 1.2 без 1.3: часть РФ-операторов не доводит ClientHello от 1.3 до сервера —
+        # домен не открывается без VPN, но открывается через него. Касается только панели
+        # и подписки; Reality на выходах живёт на своих портах и работает на TLS 1.3.
+        f"    tls {{\n"
+        f"        protocols tls1.2 tls1.2\n"
+        f"    }}\n"
         f"    encode gzip\n"
         f"    @blocked header_regexp User-Agent \"(?i)({_scanners})\"\n"
         f"    respond @blocked 404\n"

@@ -65,3 +65,18 @@ def test_panel_argv_builds_app(monkeypatch):
     monkeypatch.setattr("sys.argv", ["cascade", "--panel"])
     m.main()
     assert called.get("ok")
+
+
+def test_caddyfile_pins_tls12():
+    """Панель отдаётся по TLS 1.2: часть РФ-операторов рвёт ClientHello от 1.3."""
+    cf = caddyfile("example.com", 8088)
+    assert "protocols tls1.2 tls1.2" in cf
+    assert "tls1.3" not in cf
+
+
+def test_caddyfile_pins_tls12_behind_nginx():
+    """Прижатие к 1.2 работает и в схеме с nginx в front (Caddy на :8443)."""
+    cf = caddyfile("example.com", 8088, caddy_bind_port=8443)
+    assert "protocols tls1.2 tls1.2" in cf
+    # автоматический ACME не отключён — блок tls только настраивает версии
+    assert "example.com:8443 {" in cf
