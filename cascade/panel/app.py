@@ -1248,7 +1248,8 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         relay_ip = _relay_ip()
         data = client_profile_json(client.uuid, ex, relay_ip,
                                    remarks=f"{ex.location}-{client.name}",
-                                   fingerprint=c.fingerprint)
+                                   fingerprint=c.fingerprint,
+                                   dns_from_json=client.dns_from_json)
 
         # HWID + счётчик обновлений подписки
         from cascade.config import record_hwid, save_config
@@ -1263,14 +1264,13 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         save_config(c, config_path)
 
         from flask import Response
-        return Response(
-            data,
-            mimetype="application/json",
-            headers={
-                "profile-title": client.name,
-                "profile-update-interval": "3",
-            },
-        )
+        headers = {
+            "profile-title": client.name,
+            "profile-update-interval": "3",
+        }
+        if client.dns_from_json:
+            headers["dns-from-json-enable"] = "1"  # Happ: DNS туннеля из профиля
+        return Response(data, mimetype="application/json", headers=headers)
 
     @app.post("/boss/clients/<cid>/sub-token")
     @login_required

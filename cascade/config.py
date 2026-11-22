@@ -40,6 +40,7 @@ class Client:
     sub_token: str = ""  # постоянный токен для подписки Happ (/sub/<token>)
     hwid_list: list = field(default_factory=list)  # [{hwid, first_seen, last_seen, user_agent}]
     sub_update_count: int = 0  # количество обновлений подписки (запросов /sub/<token>)
+    dns_from_json: bool = False  # подписка велит Happ брать DNS из профиля (см. xray_config)
 
 
 @dataclass

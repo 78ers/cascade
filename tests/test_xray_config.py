@@ -361,3 +361,48 @@ def test_server_config_has_freedom_ipv4():
     ))
     freedom = next(o for o in data["outbounds"] if o["protocol"] == "freedom")
     assert freedom["settings"]["domainStrategy"] == "UseIPv4"
+
+
+def _client_cfg(**kw):
+    return json.loads(build_client_xray_config(
+        uuid="U", public_key="P", short_id="S", host="1.2.3.4", sni="s", vpn_port=8444, **kw))
+
+
+def test_client_config_dns_from_json_off_is_default():
+    # без отметки клиента профиль тот же, что раньше: без перехвата DNS
+    assert _client_cfg() == _client_cfg(dns_from_json=False)
+    data = _client_cfg()
+    assert all(o["tag"] != "dns-out" for o in data["outbounds"])
+    assert data["dns"]["servers"][0]["domains"] == ["geosite:category-ru"]
+    assert all(r.get("outboundTag") != "dns-out" for r in data["routing"]["rules"])
+
+
+def test_client_config_dns_from_json_on():
+    data = _client_cfg(dns_from_json=True)
+    servers = data["dns"]["servers"]
+    # первая запись — адрес DNS туннеля для Happ (обычный IP), Xray её не опрашивает
+    assert servers[0]["address"] == "8.8.8.8"
+    assert servers[0]["domains"] == ["full:happ-tunnel-dns.invalid"]
+    # WeChat — глазами США раньше китайских резолверов
+    wc = [s for s in servers if isinstance(s, dict) and "domain:qq.com" in s.get("domains", [])]
+    assert wc[0]["address"] == "https://8.8.8.8/dns-query"
+    assert wc[0]["clientIP"] == "73.0.0.1"
+    assert wc[1]["address"] == "https://1.12.12.12/dns-query"
+    # перехват: первое правило — UDP 53 на адрес DNS туннеля → DNS-модуль
+    rules = data["routing"]["rules"]
+    assert rules[0] == {"type": "field", "network": "udp", "port": "53",
+                        "ip": ["8.8.8.8"], "outboundTag": "dns-out"}
+    assert {"tag": "dns-out", "protocol": "dns"} in data["outbounds"]
+    # маршруты не тронуты: WeChat напрямую, остальное в каскад
+    assert any(r.get("outboundTag") == "direct" and "domain:qq.com" in r.get("domain", [])
+               for r in rules)
+    assert rules[-1]["outboundTag"] == "proxy"
+
+
+def test_profile_json_passes_dns_from_json():
+    ex = ExitServer(id="e1", location="EST", ip="9.9.9.9", relay_port=8454, vpn_port=8454,
+                    vpn_sni="s", reality_public_key="P", reality_short_id="S")
+    on = json.loads(client_profile_json("U", ex, "1.2.3.4", dns_from_json=True))
+    off = json.loads(client_profile_json("U", ex, "1.2.3.4"))
+    assert on["dns"]["servers"][0]["address"] == "8.8.8.8"
+    assert off["dns"]["servers"][0]["address"] == "77.88.8.8"
