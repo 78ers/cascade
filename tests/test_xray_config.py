@@ -149,6 +149,8 @@ def test_build_client_config_split_routing():
     assert "geoip:ru" in direct_ip["ip"]
     assert "geoip:private" in direct_ip["ip"]
     assert "119.29.29.29" in direct_ip["ip"]  # китайский DNS-резолвер WeChat ходит direct, не каскадом
+    assert "1.12.12.12" in direct_ip["ip"]  # DoH DNSPod тоже direct: иначе резолв глазами выхода
+    assert "1.2.3.4" in direct_ip["ip"]  # адрес моста мимо туннеля
     assert "geoip:cn" not in direct_ip["ip"]  # geoip:cn убран — превышал лимит памяти туннеля iOS
     # последнее правило — всё прочее в каскад
     assert rules[-1]["outboundTag"] == "proxy"
@@ -168,7 +170,8 @@ def test_build_client_config_dns_split():
     # WeChat-домены — китайский DNS (DNSPod) без expectIPs (Xray кэширует IP для UDP-звонков)
     wc = [s for s in servers
           if isinstance(s, dict) and "domain:qq.com" in s.get("domains", [])]
-    assert wc and wc[0]["address"] == "119.29.29.29"
+    assert wc and wc[0]["address"] == "https://1.12.12.12/dns-query"
+    assert all(s["address"].startswith("https://") for s in wc)  # только DoH, не открытый UDP
     assert "expectIPs" not in wc[0]
     # РФ-TLD резолвятся РФ-DNS Яндекс
     ru_tld = [s for s in servers

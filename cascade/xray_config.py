@@ -205,8 +205,10 @@ def build_client_xray_config(
                 # Запрос к резолверам идёт DIRECT из РФ (их IP в direct ip-правиле ниже — иначе
                 # ушёл бы в каскад, и Tencent снова вернул бы европейский edge). Xray кэширует
                 # выданные IP → UDP-звонки на них сопоставляются с direct-правилом (WECHAT_DOMAINS).
-                {"address": "119.29.29.29", "domains": WECHAT_DOMAINS},  # DNSPod (Tencent-own)
-                {"address": "223.5.5.5", "domains": WECHAT_DOMAINS},     # AliDNS (запасной)
+                # DoH по IP, не обычный UDP: открытый UDP-DNS к зарубежным резолверам ТСПУ
+                # может перехватить и подменить ответ, шифрованный — только заблокировать.
+                {"address": "https://1.12.12.12/dns-query", "domains": WECHAT_DOMAINS},  # DNSPod DoH (Tencent-own)
+                {"address": "https://223.5.5.5/dns-query", "domains": WECHAT_DOMAINS},   # AliDNS DoH (запасной)
                 # прочее — Google DoH через туннель: провайдер не видит, какие сайты резолвим.
                 # Адрес IP, а не домен: домен пришлось бы резолвить системным DNS провайдера
                 # (bootstrap), а его ТСПУ подменяет — тогда DoH не поднимется вовсе.
@@ -244,7 +246,7 @@ def build_client_xray_config(
             "domainStrategy": "IPIfNonMatch",
             "rules": [
                 # РФ-домены и РФ-IP + локалка идут напрямую (с реального IP устройства).
-                # 119.29.29.29 (DNSPod) и 223.5.5.5 (AliDNS) — китайские DNS-резолверы WeChat:
+                # 1.12.12.12, 119.29.29.29 (DNSPod) и 223.5.5.5 (AliDNS) — китайские DNS-резолверы WeChat:
                 # их запросы тоже direct из РФ, иначе уйдут в каскад → европейский edge.
                 {"type": "field", "outboundTag": "direct", "domain": ["geosite:category-ru"]},
                 # весь .ru/.su/.рф → direct: ловит РФ-сайты, что урезанный geosite.dat в Happ пропускает
@@ -252,7 +254,7 @@ def build_client_xray_config(
                 {"type": "field", "outboundTag": "direct",
                  "domain": ["domain:ru", "domain:su", "domain:xn--p1ai"]},
                 {"type": "field", "outboundTag": "direct",
-                 "ip": ["geoip:ru", "geoip:private", "119.29.29.29", "223.5.5.5", host]},
+                 "ip": ["geoip:ru", "geoip:private", "1.12.12.12", "119.29.29.29", "223.5.5.5", host]},
                 # WeChat → direct узким списком доменов. НЕ geosite:cn/geoip:cn —
                 # китайская geo-база превышает лимит памяти туннеля iOS (50 МБ).
                 {"type": "field", "outboundTag": "direct", "domain": WECHAT_DOMAINS},
