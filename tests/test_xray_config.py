@@ -375,6 +375,8 @@ def test_client_config_dns_from_json_off_is_default():
     assert all(o["tag"] != "dns-out" for o in data["outbounds"])
     assert data["dns"]["servers"][0]["domains"] == ["geosite:category-ru"]
     assert all(r.get("outboundTag") != "dns-out" for r in data["routing"]["rules"])
+    # дополнительные домены WeChat — только в режиме
+    assert "domain:wxlivecdn.com" not in json.dumps(data)
 
 
 def test_client_config_dns_from_json_on():
@@ -383,11 +385,14 @@ def test_client_config_dns_from_json_on():
     # первая запись — адрес DNS туннеля для Happ (обычный IP), Xray её не опрашивает
     assert servers[0]["address"] == "8.8.8.8"
     assert servers[0]["domains"] == ["full:happ-tunnel-dns.invalid"]
-    # WeChat — глазами США раньше китайских резолверов
+    # WeChat — глазами China Telecom раньше китайских резолверов
     wc = [s for s in servers if isinstance(s, dict) and "domain:qq.com" in s.get("domains", [])]
     assert wc[0]["address"] == "https://8.8.8.8/dns-query"
-    assert wc[0]["clientIP"] == "73.0.0.1"
+    assert wc[0]["clientIP"] == "101.80.0.1"
     assert wc[1]["address"] == "https://1.12.12.12/dns-query"
+    # дополнительные домены WeChat — во всех WeChat-записях DNS и в правиле direct
+    assert all("domain:wxlivecdn.com" in s["domains"] and "domain:tenpayglobal.com" in s["domains"]
+               for s in wc)
     # перехват: первое правило — UDP 53 на адрес DNS туннеля → DNS-модуль
     rules = data["routing"]["rules"]
     assert rules[0] == {"type": "field", "network": "udp", "port": "53",
@@ -395,7 +400,7 @@ def test_client_config_dns_from_json_on():
     assert {"tag": "dns-out", "protocol": "dns"} in data["outbounds"]
     # маршруты не тронуты: WeChat напрямую, остальное в каскад
     assert any(r.get("outboundTag") == "direct" and "domain:qq.com" in r.get("domain", [])
-               for r in rules)
+               and "domain:wxgateway.com" in r.get("domain", []) for r in rules)
     assert rules[-1]["outboundTag"] == "proxy"
 
 

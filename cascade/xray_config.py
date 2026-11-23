@@ -62,8 +62,19 @@ WECHAT_DOMAINS = [
 # и наш раздельный DNS работает для приложений. Перехват не сработал — запросы уходят
 # на 8.8.8.8 через туннель, как без режима.
 TUNNEL_DNS_IP = "8.8.8.8"
-# Подсеть США для доменов WeChat: Tencent отдаёт по ней другие медиа-узлы, чем для РФ/EE.
-WECHAT_DNS_CLIENT_IP = "73.0.0.1"
+# Подсеть China Telecom (Шанхай) для доменов WeChat: Tencent отдаёт по ней узлы в сетях
+# China Telecom, а для РФ/EE/США — в своём зарубежном облаке (AS132203, AS139341).
+WECHAT_DNS_CLIENT_IP = "101.80.0.1"
+# Домены WeChat из v2fly/domain-list-community (data/tencent), которых нет в WECHAT_DOMAINS.
+WECHAT_DOMAINS_EXTRA = [
+    "domain:wxlivecdn.com",      # трансляции
+    "domain:wxgateway.com",
+    "domain:wxcloudrun.com",
+    "domain:mmbizurl.cn",        # короткие ссылки
+    "domain:wxaurl.cn",
+    "domain:wxmpurl.cn",
+    "domain:tenpayglobal.com",   # WeChat Pay
+]
 
 
 def gen_uuid() -> str:
@@ -277,12 +288,18 @@ def build_client_xray_config(
     }
     if dns_from_json:
         servers = config["dns"]["servers"]
+        # расширенный список WeChat — во всех местах, где стоит WECHAT_DOMAINS
+        wc_domains = WECHAT_DOMAINS + WECHAT_DOMAINS_EXTRA
+        for item in servers + config["routing"]["rules"]:
+            for key in ("domains", "domain"):
+                if isinstance(item, dict) and item.get(key) is WECHAT_DOMAINS:
+                    item[key] = wc_domains
         # первая запись — адрес DNS туннеля для Happ; Xray её не опрашивает (фиктивный домен)
         servers.insert(0, {"address": TUNNEL_DNS_IP, "domains": ["full:happ-tunnel-dns.invalid"]})
-        # WeChat — глазами США, раньше китайских резолверов; DoH 8.8.8.8 идёт через туннель
+        # WeChat — глазами China Telecom, раньше китайских резолверов; DoH 8.8.8.8 через туннель
         wc = next(i for i, s in enumerate(servers)
-                  if isinstance(s, dict) and s.get("domains") is WECHAT_DOMAINS)
-        servers.insert(wc, {"address": "https://8.8.8.8/dns-query", "domains": WECHAT_DOMAINS,
+                  if isinstance(s, dict) and s.get("domains") is wc_domains)
+        servers.insert(wc, {"address": "https://8.8.8.8/dns-query", "domains": wc_domains,
                             "clientIP": WECHAT_DNS_CLIENT_IP})
         config["outbounds"].append({"tag": "dns-out", "protocol": "dns"})
         # запросы приложений к DNS туннеля → DNS-модуль Xray (свои запросы Xray сюда не попадают:
