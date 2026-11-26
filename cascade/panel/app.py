@@ -1267,7 +1267,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         from flask import Response
         headers = {
             "profile-title": client.name,
-            "profile-update-interval": "3",
+            "profile-update-interval": "1",
         }
         if client.dns_from_json:
             headers["dns-from-json-enable"] = "1"  # Happ: DNS туннеля из профиля

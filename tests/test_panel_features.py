@@ -348,7 +348,7 @@ def test_sub_token_requires_auth(client_cfg):
     assert r.status_code in (301, 302)
 
 
-def test_sub_serves_primary_exit_and_3h(client_cfg, monkeypatch):
+def test_sub_serves_primary_exit_and_1h(client_cfg, monkeypatch):
     import cascade.panel.app as appmod
     from cascade.config import ExitServer
     c, cfg_path = client_cfg
@@ -362,7 +362,7 @@ def test_sub_serves_primary_exit_and_3h(client_cfg, monkeypatch):
     save_config(cfg, cfg_path)
     r = c.get("/sub/tok-pri")
     assert r.status_code == 200
-    assert r.headers.get("profile-update-interval") == "3"
+    assert r.headers.get("profile-update-interval") == "1"
     import json
     data = json.loads(r.get_data())
     vnext = data["outbounds"][0]["settings"]["vnext"][0]
