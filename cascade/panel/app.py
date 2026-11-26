@@ -1247,6 +1247,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             return render_template("decoy.html")
         relay_ip = _relay_ip()
         data = client_profile_json(client.uuid, ex, relay_ip,
+                                   direct=client.sub_direct,
                                    remarks=f"{ex.location}-{client.name}",
                                    fingerprint=c.fingerprint,
                                    dns_from_json=client.dns_from_json)
