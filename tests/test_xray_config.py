@@ -411,3 +411,45 @@ def test_profile_json_passes_dns_from_json():
     off = json.loads(client_profile_json("U", ex, "1.2.3.4"))
     assert on["dns"]["servers"][0]["address"] == "8.8.8.8"
     assert off["dns"]["servers"][0]["address"] == "77.88.8.8"
+
+
+def _proxy_stream(cfg_text):
+    data = json.loads(cfg_text)
+    return [o for o in data["outbounds"] if o["tag"] == "proxy"][0]["streamSettings"]
+
+
+def test_client_config_no_fragment_by_default():
+    cfg = build_client_xray_config(uuid="U", public_key="PBK", short_id="SID", host="1.2.3.4",
+                                   sni="ya.ru", vpn_port=8444)
+    assert "finalmask" not in _proxy_stream(cfg)
+
+
+def test_client_config_fragment_adds_finalmask_only_on_proxy_stream():
+    cfg = build_client_xray_config(uuid="U", public_key="PBK", short_id="SID", host="1.2.3.4",
+                                   sni="ya.ru", vpn_port=8444, fragment=True)
+    stream = _proxy_stream(cfg)
+    assert stream["finalmask"] == {"tcp": [{"type": "fragment", "settings": {
+        "packets": "tlshello", "length": "1-4", "delay": "1-2", "maxSplit": "250-300"}}]}
+    assert stream["realitySettings"]["serverName"] == "ya.ru" and stream["network"] == "tcp"
+    assert "finalmask" not in json.dumps(json.loads(cfg)["outbounds"][1:])
+
+
+def test_client_profile_json_passes_fragment():
+    ex = ExitServer(id="e", location="EST", ip="9.9.9.9", relay_port=8454, vpn_port=8454,
+                    vpn_sni="ya.ru", reality_public_key="PB", reality_short_id="S")
+    off = json.loads(client_profile_json("u-1", ex, "5.5.5.5"))
+    on = json.loads(client_profile_json("u-1", ex, "5.5.5.5", fragment=True))
+    assert "finalmask" not in off["outbounds"][0]["streamSettings"]
+    assert on["outbounds"][0]["streamSettings"]["finalmask"]["tcp"][0]["type"] == "fragment"
+
+
+def test_client_profile_url_fragment_param_only_when_enabled():
+    ex = ExitServer(id="e", location="EST", ip="9.9.9.9", relay_port=8454, vpn_port=8454,
+                    vpn_sni="ya.ru", reality_public_key="PB", reality_short_id="S")
+    off = client_profile_url("u-1", ex, "5.5.5.5", "phone")
+    on = client_profile_url("u-1", ex, "5.5.5.5", "phone", fragment=True)
+    assert "fragment" not in off
+    assert on == off.replace("&headerType=none#", "&headerType=none&fragment=1-4,1-3,tlshello,60-80#")
+    direct = client_profile_url("u-1", ex, "5.5.5.5", "phone", direct=True, fragment=True)
+    assert "&fragment=1-4,1-3,tlshello,60-80#" in direct and "@9.9.9.9:8454" in direct
+

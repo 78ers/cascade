@@ -126,6 +126,64 @@ def test_sub_records_profile_hash_and_hwid_page_marks_status(client_cfg, monkeyp
     assert "✅ актуальный" not in body and "0 из 2 актуальны" in body
 
 
+def test_fragment_button_toggles_flag_and_changes_subscription_profile(client_cfg, monkeypatch):
+    import json as _j
+    import cascade.panel.app as appmod
+    c, cfg_path = client_cfg
+    monkeypatch.setattr(appmod, "_relay_ip", lambda: "5.5.5.5")
+    cfg = load_config(cfg_path)
+    cfg.clients[0].sub_token = "tok1"
+    save_config(cfg, cfg_path)
+    assert load_config(cfg_path).fragment_enabled is False
+    before = c.get("/sub/tok1", headers={"X-Hwid": "dev-a"}).get_data(as_text=True)
+    assert "finalmask" not in before
+    _login(c)
+    page = c.get("/boss/settings").get_data(as_text=True)
+    assert "Включить защиту для всех клиентов" in page and "Сейчас: <b>выключена</b>" in page
+    c.post("/boss/settings/fragment", data={"csrf": _token(c, "/boss/settings"), "enabled": "1"})
+    assert load_config(cfg_path).fragment_enabled is True
+    after = c.get("/sub/tok1", headers={"X-Hwid": "dev-a"}).get_data(as_text=True)
+    stream = _j.loads(after)["outbounds"][0]["streamSettings"]
+    assert stream["finalmask"]["tcp"][0]["settings"]["packets"] == "tlshello"
+    assert appmod.profile_hash(after) != appmod.profile_hash(before)
+    page = c.get("/boss/settings").get_data(as_text=True)
+    assert "Выключить защиту" in page and "Сейчас: <b>включена</b>" in page
+    c.post("/boss/settings/fragment", data={"csrf": _token(c, "/boss/settings"), "enabled": "0"})
+    assert load_config(cfg_path).fragment_enabled is False
+    assert c.get("/sub/tok1", headers={"X-Hwid": "dev-a"}).get_data(as_text=True) == before
+
+
+def test_fragment_button_adds_fragment_param_to_links_and_qr(client_cfg, monkeypatch):
+    import cascade.panel.app as appmod
+    c, cfg_path = client_cfg
+    monkeypatch.setattr(appmod, "_relay_ip", lambda: "5.5.5.5")
+    seen = []
+    monkeypatch.setattr(appmod, "_qr_svg", lambda data: seen.append(data) or "<svg/>")
+    cfg = load_config(cfg_path)
+    cfg.domain = "t.example.ru"
+    cfg.clients[0].sub_token = "tok1"
+    save_config(cfg, cfg_path)
+    _login(c)
+    c.get("/boss/clients")
+    assert seen and not any("fragment=" in x for x in seen)
+    c.post("/boss/settings/fragment", data={"csrf": _token(c, "/boss/settings"), "enabled": "1"})
+    seen.clear()
+    body = c.get("/boss/clients").get_data(as_text=True)
+    vless = [x for x in seen if x.startswith("vless://")]
+    assert vless and all("&fragment=1-4,1-3,tlshello,60-80#" in x.split("\n")[0] for x in vless)
+    assert any(x.startswith("vless://") and "\nhttps://t.example.ru/sub/tok1" in x for x in seen)
+    assert "fragment=1-4,1-3,tlshello,60-80" in body
+
+
+def test_fragment_button_rejects_missing_csrf_and_anonymous(client_cfg):
+    c, cfg_path = client_cfg
+    assert c.post("/boss/settings/fragment", data={"enabled": "1"}).status_code in (301, 302)
+    assert load_config(cfg_path).fragment_enabled is False
+    _login(c)
+    c.post("/boss/settings/fragment", data={"csrf": "wrong", "enabled": "1"})
+    assert load_config(cfg_path).fragment_enabled is False
+
+
 def test_clients_requires_auth(client_cfg):
     c, _ = client_cfg
     assert c.get("/boss/clients").status_code in (301, 302)

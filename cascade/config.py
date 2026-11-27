@@ -66,6 +66,7 @@ class Config:
     clients: list = field(default_factory=list)        # list[Client]
     vpn_name: str = "CASCADE VPN"
     fingerprint: str = "firefox"  # uTLS-отпечаток клиента (маскировка TLS); chrome режет РФ-DPI
+    fragment_enabled: bool = False  # дробление первого пакета TLS в JSON-профилях (обход блокировки по SNI)
     mtproto_ports: list = field(default_factory=lambda: [8443])
     monitor_interval_min: int = 5
     auto_restart: bool = True

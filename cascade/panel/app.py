@@ -79,7 +79,8 @@ def _profile_for(c, client, ex) -> str:
                                direct=client.sub_direct,
                                remarks=f"{ex.location}-{client.name}",
                                fingerprint=c.fingerprint,
-                               dns_from_json=client.dns_from_json)
+                               dns_from_json=client.dns_from_json,
+                               fragment=c.fragment_enabled)
 
 
 def profile_hash(data: str) -> str:
@@ -189,11 +190,13 @@ def _client_profiles(c, client, relay_ip: str) -> list:
     for ex in c.exit_servers:
         for direct in (False, True):
             url = client_profile_url(client.uuid, ex, relay_ip, client.name,
-                                     direct=direct, fingerprint=c.fingerprint)
+                                     direct=direct, fingerprint=c.fingerprint,
+                                     fragment=c.fragment_enabled)
             prof_json = client_profile_json(client.uuid, ex, relay_ip, direct=direct,
                                             remarks=f"{ex.location}-{client.name}"
                                                     + (" direct" if direct else ""),
-                                            fingerprint=c.fingerprint)
+                                            fingerprint=c.fingerprint,
+                                            fragment=c.fragment_enabled)
             profiles.append({"exit": ex.location, "mode": "direct" if direct else "cascade",
                              "url": url, "qr": _qr_svg(url), "json": prof_json,
                              "eid": ex.id, "direct": direct})
@@ -435,7 +438,8 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
                 sub_qr = _qr_svg(sub_url)
             for direct in (False, True):
                 url = client_profile_url(client.uuid, ex, relay_ip, client.name,
-                                         direct=direct, fingerprint=c.fingerprint)
+                                         direct=direct, fingerprint=c.fingerprint,
+                                         fragment=c.fragment_enabled)
                 bootstrap_qr = ""
                 if sub_url and not direct:
                     bootstrap_qr = _qr_svg(f"{url}\n{sub_url}")
@@ -895,7 +899,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         from cascade.xray_config import client_profile_json
         data = client_profile_json(client.uuid, ex, relay_ip, direct=direct,
                                    remarks=f"{ex.location}-{client.name}" + (" direct" if direct else ""),
-                                   fingerprint=c.fingerprint)
+                                   fingerprint=c.fingerprint, fragment=c.fragment_enabled)
         from flask import Response
         suffix = "-direct" if direct else ""
         return Response(
@@ -990,6 +994,20 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
         return send_file(config_path, as_attachment=True,
                          download_name="cascade-config-backup.json",
                          mimetype="application/json")
+
+    @app.post("/boss/settings/fragment")
+    @login_required
+    def settings_fragment():
+        """Включить/выключить дробление первого пакета TLS во всех JSON-профилях: клиенты получают его с подпиской."""
+        if not _check_csrf():
+            return redirect(url_for("settings"))
+        c = cfg()
+        c.fragment_enabled = request.form.get("enabled") == "1"
+        save_config(c, config_path)
+        flash("Защита от блокировки по SNI включена: клиентам придёт новый профиль при обновлении подписки"
+              if c.fragment_enabled else
+              "Защита от блокировки по SNI выключена: клиентам придёт прежний профиль при обновлении подписки")
+        return redirect(url_for("settings"))
 
     @app.post("/boss/config/backup")
     @login_required
@@ -1367,7 +1385,8 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             if not relay_ip:
                 return "", 503
             vless_url = client_profile_url(client.uuid, ex, relay_ip, client.name,
-                                           direct=False, fingerprint=c.fingerprint)
+                                           direct=False, fingerprint=c.fingerprint,
+                                           fragment=c.fragment_enabled)
             sub_url = f"https://{c.domain}/sub/{token}?exit={eid}"
             data = f"{vless_url}\n{sub_url}"
         else:

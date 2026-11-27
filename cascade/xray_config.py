@@ -14,6 +14,13 @@ DEFAULT_FINGERPRINT = "firefox"   # chrome-отпечаток режет РФ-DP
 FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
                 "edge", "360", "qq", "random", "randomized"]
 
+# Дробление первого пакета TLS (ClientHello) на ≈70 кусков по 1–4 байта: имя SNI не лежит
+# в одном пакете, оператор, режущий по имени, его не видит. Формат ядра Xray (finalmask);
+# maxSplit здесь не равен числу кусков (у ссылки Happ fragment=… он равен), значения подобраны замером.
+FRAGMENT_SETTINGS = {"packets": "tlshello", "length": "1-4", "delay": "1-2", "maxSplit": "250-300"}
+# То же дробление для ссылки vless:// (параметр fragment приложения Happ: длина, интервал, пакеты, число кусков).
+FRAGMENT_LINK = "1-4,1-3,tlshello,60-80"
+
 # WeChat → direct: из РФ напрямую быстрее, чем крюком через Европу.
 # Список корневых доменов вместо geosite:cn/geoip:cn — китайская geo-база огромна
 # и превышает лимит памяти туннеля на iOS (Network Extension ~50 МБ). Один
@@ -175,6 +182,7 @@ def build_client_xray_config(
     socks_port: int = 10808, http_port: int = 10809,
     xhttp_path: str = "",
     dns_from_json: bool = False,
+    fragment: bool = False,
 ) -> str:
     """Клиентский config.json со сплит-routing: РФ → direct, прочее → каскад.
 
@@ -201,6 +209,8 @@ def build_client_xray_config(
         flow = "xtls-rprx-vision"
         stream = {"network": "tcp", "security": "reality",
                   "realitySettings": realitySettings}
+    if fragment:
+        stream["finalmask"] = {"tcp": [{"type": "fragment", "settings": dict(FRAGMENT_SETTINGS)}]}
     proxy_out = {
         "tag": "proxy",
         "protocol": "vless",
@@ -310,13 +320,15 @@ def build_client_xray_config(
 
 
 def vless_reality_url(uuid, host, port, sni, public_key, short_id, name,
-                      fingerprint=DEFAULT_FINGERPRINT):
+                      fingerprint=DEFAULT_FINGERPRINT, fragment=False):
+    frag = f"&fragment={FRAGMENT_LINK}" if fragment else ""
     return (
         f"vless://{uuid}@{host}:{port}"
         f"?encryption=none&flow=xtls-rprx-vision"
         f"&security=reality&sni={sni}&fp={fingerprint}"
         f"&pbk={public_key}&sid={short_id}"
         f"&type=tcp&headerType=none"
+        f"{frag}"
         f"#{name}"
     )
 
@@ -334,7 +346,8 @@ def vless_xhttp_url(uuid, host, port, sni, xhttp_path, name,
 def client_profile_json(uuid: str, exit_server, relay_ip: str,
                         direct: bool = False, remarks: str = "",
                         fingerprint: str = DEFAULT_FINGERPRINT,
-                        dns_from_json: bool = False) -> str:
+                        dns_from_json: bool = False,
+                        fragment: bool = False) -> str:
     """Полный клиентский config.json под один выход.
     direct=False → через мост РФ (host=relay_ip, port=relay_port).
     direct=True  → напрямую к выходу (host=exit.ip, port=exit.vpn_port)."""
@@ -344,7 +357,7 @@ def client_profile_json(uuid: str, exit_server, relay_ip: str,
         uuid=uuid, public_key=exit_server.reality_public_key,
         short_id=exit_server.reality_short_id, host=host,
         sni=exit_server.vpn_sni, vpn_port=port, fingerprint=fingerprint,
-        dns_from_json=dns_from_json,
+        dns_from_json=dns_from_json, fragment=fragment,
     ))
     if remarks:
         cfg = {"remarks": remarks, **cfg}
@@ -353,7 +366,8 @@ def client_profile_json(uuid: str, exit_server, relay_ip: str,
 
 def client_profile_url(uuid: str, exit_server, relay_ip: str, name: str,
                        direct: bool = False,
-                       fingerprint: str = DEFAULT_FINGERPRINT) -> str:
+                       fingerprint: str = DEFAULT_FINGERPRINT,
+                       fragment: bool = False) -> str:
     """VLESS-ссылка под один выход (cascade или direct)."""
     host = exit_server.ip if direct else relay_ip
     port = exit_server.vpn_port if direct else exit_server.relay_port
@@ -363,7 +377,7 @@ def client_profile_url(uuid: str, exit_server, relay_ip: str, name: str,
         public_key=exit_server.reality_public_key,
         short_id=exit_server.reality_short_id,
         name=f"{name} [{exit_server.location}]{suffix}",
-        fingerprint=fingerprint,
+        fingerprint=fingerprint, fragment=fragment,
     )
 
 

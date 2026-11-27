@@ -203,7 +203,8 @@ def vpn_menu(cfg: "Config | None") -> None:
                         from cascade.xray_config import client_profile_url
                         vless_url = client_profile_url(client.uuid, ex, relay_ip,
                                                        client.name, direct=False,
-                                                       fingerprint=cfg.fingerprint)
+                                                       fingerprint=cfg.fingerprint,
+                                                       fragment=cfg.fragment_enabled)
                         print(f"  {ex.location} — VLESS + подписка:")
                         qr(f"{vless_url}\n{url}")
             elif client.sub_token:
@@ -241,7 +242,8 @@ def _profile_screen(cfg, st) -> None:
     suffix = " direct" if direct else ""
     remarks = f"{ex.location}-{cname}{suffix}"
     conf_json = client_profile_json(client.uuid, ex, relay_ip, direct=direct,
-                                    remarks=remarks, fingerprint=cfg.fingerprint)
+                                    remarks=remarks, fingerprint=cfg.fingerprint,
+                                    fragment=cfg.fragment_enabled)
     out_path = SERVER_CREDS_DIR / f"client-{cname}-{exit_id}{'-direct' if direct else ''}.json"
     out_path.write_text(conf_json, encoding="utf-8")
     os.chmod(out_path, 0o600)

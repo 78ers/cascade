@@ -246,7 +246,8 @@ def print_vpn_links(cfg: Config, relay_ip: str) -> None:
             continue
         for ex in cfg.exit_servers:
             url = client_profile_url(c.uuid, ex, relay_ip, c.name, direct=False,
-                                     fingerprint=cfg.fingerprint)
+                                     fingerprint=cfg.fingerprint,
+                                     fragment=cfg.fragment_enabled)
             print(f"\n{c.name} → {ex.location}:")
             print(url)
             qr(url)
@@ -260,7 +261,7 @@ def client_vless_url(cfg: Config, name: str, exit_id: str, relay_ip: str,
     if not c or not ex:
         return ""
     return client_profile_url(c.uuid, ex, relay_ip, c.name, direct=direct,
-                              fingerprint=cfg.fingerprint)
+                              fingerprint=cfg.fingerprint, fragment=cfg.fragment_enabled)
 
 
 def restart_vpn(conn: ServerConnection) -> bool:
