@@ -17,7 +17,7 @@ FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android",
 # Дробление первого пакета TLS (ClientHello) на ≈70 кусков по 1–4 байта: имя SNI не лежит
 # в одном пакете, оператор, режущий по имени, его не видит. Формат ядра Xray (finalmask);
 # maxSplit здесь не равен числу кусков (у ссылки Happ fragment=… он равен), значения подобраны замером.
-FRAGMENT_SETTINGS = {"packets": "tlshello", "length": "1-4", "delay": "1-2", "maxSplit": "250-300"}
+FRAGMENT_SETTINGS = {"packets": "tlshello", "length": "1-4", "delay": "1-3", "maxSplit": "250-300"}
 # То же дробление для ссылки vless:// (параметр fragment приложения Happ: длина, интервал, пакеты, число кусков).
 FRAGMENT_LINK = "1-4,1-3,tlshello,60-80"
 

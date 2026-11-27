@@ -429,7 +429,7 @@ def test_client_config_fragment_adds_finalmask_only_on_proxy_stream():
                                    sni="ya.ru", vpn_port=8444, fragment=True)
     stream = _proxy_stream(cfg)
     assert stream["finalmask"] == {"tcp": [{"type": "fragment", "settings": {
-        "packets": "tlshello", "length": "1-4", "delay": "1-2", "maxSplit": "250-300"}}]}
+        "packets": "tlshello", "length": "1-4", "delay": "1-3", "maxSplit": "250-300"}}]}
     assert stream["realitySettings"]["serverName"] == "ya.ru" and stream["network"] == "tcp"
     assert "finalmask" not in json.dumps(json.loads(cfg)["outbounds"][1:])
 
