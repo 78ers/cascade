@@ -17,3 +17,7 @@ TelegramProxy-main/
 # Claude-воркфлоу артефакты — НЕ на GitHub (только локально)
 docs/research/
 docs/superpowers/
+
+# Копии серверов (ключи, адреса) — только локально
+backup-servers/
+*.tar.gz
