@@ -40,6 +40,20 @@ def _csrf_token() -> str:
     return session["csrf"]
 
 
+def fmt_msk(iso: str) -> str:
+    """ISO-время (UTC) → «ДД.ММ.ГГГГ ЧЧ:ММ» по Москве (UTC+3, перехода на летнее время нет)."""
+    from datetime import datetime, timedelta, timezone
+    if not iso:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(iso)
+    except ValueError:
+        return iso[:10]
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M")
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*a, **kw):
@@ -57,6 +71,21 @@ def _relay_ip() -> str:
     if not _RELAY_IP["v"]:
         _RELAY_IP["v"] = _get_local_ip() or ""
     return _RELAY_IP["v"]
+
+
+def _profile_for(c, client, ex) -> str:
+    """Профиль подписки клиента для выхода ex. Один текст и для выдачи, и для сверки на странице устройств."""
+    return client_profile_json(client.uuid, ex, _relay_ip(),
+                               direct=client.sub_direct,
+                               remarks=f"{ex.location}-{client.name}",
+                               fingerprint=c.fingerprint,
+                               dns_from_json=client.dns_from_json)
+
+
+def profile_hash(data: str) -> str:
+    """Короткая отметка содержимого профиля: совпала с текущей — устройство скачало актуальный."""
+    import hashlib
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()[:12]
 
 
 def _conns(c):
@@ -227,6 +256,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
     app.config["SESSION_COOKIE_SECURE"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.jinja_env.globals["csrf_token"] = _csrf_token
+    app.jinja_env.filters["msk"] = fmt_msk
 
     def cfg():
         return load_config(config_path)
@@ -1245,12 +1275,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             ex = next((e for e in c.exit_servers if e.id == eid), None) or primary_exit(c)
         if not client or not ex:
             return render_template("decoy.html")
-        relay_ip = _relay_ip()
-        data = client_profile_json(client.uuid, ex, relay_ip,
-                                   direct=client.sub_direct,
-                                   remarks=f"{ex.location}-{client.name}",
-                                   fingerprint=c.fingerprint,
-                                   dns_from_json=client.dns_from_json)
+        data = _profile_for(c, client, ex)
 
         # HWID + счётчик обновлений подписки
         from cascade.config import record_hwid, save_config
@@ -1261,7 +1286,7 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             os_name = request.headers.get("X-Device-Os", "")
             app_ver = request.headers.get("X-App-Version", "")
             ua = f"{device} {os_name} {app_ver}".strip()
-            record_hwid(client, hwid, ua)
+            record_hwid(client, hwid, ua, profile_hash(data), ex.id)
         save_config(c, config_path)
 
         from flask import Response
@@ -1296,14 +1321,26 @@ def create_app(config_path: Path = CONFIG_PATH, secret_path: Path = SECRET_PATH)
             return redirect(url_for("settings"))
         rows = []
         for cl in c.clients:
-            hwids = cl.hwid_list if hasattr(cl, 'hwid_list') else []
+            hwids = [dict(h) for h in (cl.hwid_list if hasattr(cl, 'hwid_list') else [])]
             first_seen = ""
             last_seen = ""
             if hwids:
                 first_seen = min(h["first_seen"] for h in hwids)
                 last_seen = max(h["last_seen"] for h in hwids)
+            # актуальный профиль: отметка последнего скачанного совпала с тем, что сервер выдаёт сейчас
+            current, ok = {}, 0
+            for h in hwids:
+                ex = next((e for e in c.exit_servers if e.id == h.get("profile_exit")), None)
+                if not h.get("profile_hash") or not ex:
+                    h["status"] = "unknown"
+                    continue
+                if ex.id not in current:
+                    current[ex.id] = profile_hash(_profile_for(c, cl, ex))
+                h["status"] = "ok" if h["profile_hash"] == current[ex.id] else "old"
+                ok += h["status"] == "ok"
             rows.append({
                 "client": cl,
+                "ok": ok,
                 "count": len(hwids),
                 "updates": cl.sub_update_count if hasattr(cl, 'sub_update_count') else 0,
                 "first_seen": first_seen,

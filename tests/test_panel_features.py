@@ -53,7 +53,7 @@ def test_diag_test_ss_runs(client_cfg, monkeypatch):
     c, _ = client_cfg
     monkeypatch.setattr(appmod, "_relay_ip", lambda: "5.5.5.5")
     monkeypatch.setattr(appmod.subprocess, "run",
-                        lambda *a, **k: types.SimpleNamespace(stdout="cwnd:10 retrans:0", stderr=""))
+                        lambda *a, **k: types.SimpleNamespace(stdout="cwnd:10 retrans:0", stderr="", returncode=0))
     _login(c)
     r = c.post("/boss/diag/test/ss", data={"csrf": _token(c)})
     assert r.status_code == 200
@@ -73,6 +73,57 @@ def test_diag_test_unknown_redirects(client_cfg, monkeypatch):
 def test_diag_test_requires_auth(client_cfg):
     c, _ = client_cfg
     assert c.post("/boss/diag/test/ss").status_code in (301, 302)
+
+
+def test_fmt_msk_converts_utc_to_moscow():
+    from cascade.panel.app import fmt_msk
+    assert fmt_msk("2026-11-27T11:59:38.390853+00:00") == "27.11.2026 14:59"
+    assert fmt_msk("2026-12-31T22:30:00+00:00") == "01.01.2027 01:30"   # переход через полночь и год
+    assert fmt_msk("2026-11-27T11:59:38") == "27.11.2026 14:59"          # без часового пояса — считаем UTC
+    assert fmt_msk("") == "—"
+    assert fmt_msk("мусор") == "мусор"
+
+
+def test_hwid_page_shows_time_in_moscow(client_cfg):
+    c, cfg_path = client_cfg
+    cfg = load_config(cfg_path)
+    cfg.clients[0].hwid_list = [{"hwid": "abcdef0123456789zz", "first_seen": "2026-11-27T08:31:00+00:00",
+                                 "last_seen": "2026-11-27T11:59:38+00:00", "user_agent": "iPhone 13 Pro iOS 4.12.0"}]
+    save_config(cfg, cfg_path)
+    _login(c)
+    body = c.get("/boss/hwid").get_data(as_text=True)
+    assert "27.11.2026 14:59" in body     # последнее обновление, часы и минуты по Москве
+    assert "27.11.2026 11:31" in body     # первое появление
+    assert "(МСК)" in body
+
+
+def test_sub_records_profile_hash_and_hwid_page_marks_status(client_cfg, monkeypatch):
+    import cascade.panel.app as appmod
+    c, cfg_path = client_cfg
+    monkeypatch.setattr(appmod, "_relay_ip", lambda: "5.5.5.5")
+    cfg = load_config(cfg_path)
+    cfg.clients[0].sub_token = "tok1"
+    save_config(cfg, cfg_path)
+    # устройство запрашивает подписку: сервер записывает отметку выданного профиля
+    r = c.get("/sub/tok1", headers={"X-Hwid": "dev-new", "X-Device-Model": "iPhone"})
+    assert r.status_code == 200
+    saved = load_config(cfg_path).clients[0].hwid_list[0]
+    assert saved["profile_hash"] == appmod.profile_hash(r.get_data(as_text=True)) and saved["profile_exit"] == "fin"
+    # второе устройство скачало «старый» профиль
+    cfg = load_config(cfg_path)
+    cfg.clients[0].hwid_list.append({"hwid": "dev-old-0123456789", "first_seen": "2026-11-27T08:00:00+00:00",
+                                     "last_seen": "2026-11-27T09:00:00+00:00", "user_agent": "iPhone X",
+                                     "profile_hash": "0badc0ffee00", "profile_exit": "fin"})
+    save_config(cfg, cfg_path)
+    _login(c)
+    body = c.get("/boss/hwid").get_data(as_text=True)
+    assert "✅ актуальный" in body and "не скачал новый" in body and "1 из 2 актуальны" in body
+    # после смены SNI у выхода «новое» устройство перестаёт быть актуальным до следующего скачивания
+    cfg = load_config(cfg_path)
+    cfg.exit_servers[0].vpn_sni = "ya.ru"
+    save_config(cfg, cfg_path)
+    body = c.get("/boss/hwid").get_data(as_text=True)
+    assert "✅ актуальный" not in body and "0 из 2 актуальны" in body
 
 
 def test_clients_requires_auth(client_cfg):

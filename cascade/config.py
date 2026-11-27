@@ -206,8 +206,9 @@ def save_config(cfg: "Config", path: Path = CONFIG_PATH) -> None:
     os.replace(tmp, path)
 
 
-def record_hwid(client, hwid, user_agent=""):
-    """Записать/обновить HWID для клиента. Дубликаты обновляют last_seen."""
+def record_hwid(client, hwid, user_agent="", profile_hash="", profile_exit=""):
+    """Записать/обновить HWID для клиента. Дубликаты обновляют last_seen.
+    profile_hash/profile_exit — отметка профиля, который устройство скачало при этом запросе."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     for entry in client.hwid_list:
@@ -215,10 +216,17 @@ def record_hwid(client, hwid, user_agent=""):
             entry["last_seen"] = now
             if user_agent:
                 entry["user_agent"] = user_agent
+            if profile_hash:
+                entry["profile_hash"] = profile_hash
+                entry["profile_exit"] = profile_exit
             return
-    client.hwid_list.append({
+    entry = {
         "hwid": hwid,
         "first_seen": now,
         "last_seen": now,
         "user_agent": user_agent,
-    })
+    }
+    if profile_hash:
+        entry["profile_hash"] = profile_hash
+        entry["profile_exit"] = profile_exit
+    client.hwid_list.append(entry)

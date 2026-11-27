@@ -274,6 +274,17 @@ def test_record_hwid_duplicate_updates_last_seen():
     assert cl.hwid_list[0]["user_agent"] == "Happ/2.18 Android"
 
 
+def test_record_hwid_stores_profile_hash():
+    from cascade.config import record_hwid
+    cl = Client(id="c1", name="test", uuid="u1")
+    record_hwid(cl, "abc123", "Happ", "h1", "TLN")                 # новое устройство
+    assert cl.hwid_list[0]["profile_hash"] == "h1" and cl.hwid_list[0]["profile_exit"] == "TLN"
+    record_hwid(cl, "abc123", "Happ", "h2", "TLN")                 # повторный запрос — отметка обновляется
+    assert len(cl.hwid_list) == 1 and cl.hwid_list[0]["profile_hash"] == "h2"
+    record_hwid(cl, "abc123")                                      # запрос без отметки не стирает прежнюю
+    assert cl.hwid_list[0]["profile_hash"] == "h2"
+
+
 def test_record_hwid_multiple_devices():
     from cascade.config import record_hwid
     cl = Client(id="c1", name="test", uuid="u1")

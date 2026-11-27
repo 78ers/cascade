@@ -13,8 +13,9 @@
       <th>Клиент</th>
       <th>Устройств</th>
       <th>Обновлений</th>
-      <th>Первое появление</th>
-      <th>Последнее</th>
+      <th>Первое появление (МСК)</th>
+      <th>Последнее обновление (МСК)</th>
+      <th>Профиль</th>
     </tr>
     {% for row in rows %}
     <tr>
@@ -40,8 +41,17 @@
           <span>{{ row.updates }}</span>
         {% endif %}
       </td>
-      <td>{{ row.first_seen[:10] if row.first_seen else '—' }}</td>
-      <td>{{ row.last_seen[:10] if row.last_seen else '—' }}</td>
+      <td>{{ row.first_seen | msk }}</td>
+      <td>{{ row.last_seen | msk }}</td>
+      <td>
+        {% if row.count == 0 %}
+          <span style="color:rgba(235,235,245,.3)">—</span>
+        {% elif row.ok == row.count %}
+          <span class="badge" style="background:rgba(48,209,88,.2);color:#30d158">{{ row.ok }} из {{ row.count }} актуальны</span>
+        {% else %}
+          <span class="badge" style="background:rgba(255,149,0,.2);color:#ff9500">{{ row.ok }} из {{ row.count }} актуальны</span>
+        {% endif %}
+      </td>
     </tr>
     {% if row.hwids %}
     {% for h in row.hwids %}
@@ -49,17 +59,27 @@
       <td style="padding-left:24px">{{ h.hwid[:16] }}…</td>
       <td>{{ h.user_agent[:30] if h.user_agent else '' }}</td>
       <td></td>
-      <td>{{ h.first_seen[:10] }}</td>
-      <td>{{ h.last_seen[:10] }}</td>
+      <td>{{ h.first_seen | msk }}</td>
+      <td>{{ h.last_seen | msk }}</td>
+      <td>
+        {% if h.status == 'ok' %}
+          <span style="color:#30d158">✅ актуальный</span>
+        {% elif h.status == 'old' %}
+          <span style="color:#ff9500">⚠ не скачал новый</span>
+        {% else %}
+          <span style="color:rgba(235,235,245,.3)">нет данных</span>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
     {% endif %}
     {% else %}
-    <tr><td colspan="5" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
+    <tr><td colspan="6" style="color:rgba(235,235,245,.3);text-align:center;padding:24px">Нет клиентов</td></tr>
     {% endfor %}
   </table>
   <div style="padding:8px 12px;font-size:11px;color:rgba(235,235,245,.4)">
-    Норма: ~8 обновлений/день на 1 устройство (раз в 3ч). Если обновлений больше — подписку используют несколько устройств.
+    Норма: ~8 обновлений/день на 1 устройство (раз в 3ч). Если обновлений больше — подписку используют несколько устройств.<br>
+    «Актуальный» — при последнем обновлении устройство скачало тот профиль, который сервер выдаёт сейчас. Это не значит, что оно уже переподключилось по нему: после скачивания нужно выключить и включить VPN в Happ.
   </div>
 </div>
 {% endblock %}
